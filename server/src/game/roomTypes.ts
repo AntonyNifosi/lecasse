@@ -1,0 +1,33 @@
+import type { Card, GameState, RoomSettings, RoomStatus } from '@thegang/shared';
+
+export interface InternalPlayer {
+  id: string;
+  name: string;
+  colorTag: string;
+  secretToken: string;
+  socketId: string | null;
+  connected: boolean;
+  isHost: boolean;
+  disconnectedAt: number | null;
+  holeCards: Card[];
+}
+
+export interface InternalGameState extends GameState {
+  deck: Card[];
+}
+
+export interface RoomInternal {
+  code: string;
+  status: RoomStatus;
+  settings: RoomSettings;
+  players: InternalPlayer[]; // join order == seating order, used for neighbor effects
+  game: InternalGameState | null;
+  finalResult: 'win' | 'lose' | null;
+  cardPools: { malusQueue: string[]; bonusQueue: string[] };
+  createdAt: number;
+  lastActivityAt: number;
+}
+
+export type SideEffect =
+  | { type: 'privatePeek'; toPlayerId: string; aboutPlayerId: string; card: Card }
+  | { type: 'privateInfo'; toPlayerId: string; message: string; card?: Card };
