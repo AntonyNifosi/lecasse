@@ -143,6 +143,17 @@ export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
     }
   });
 
+  socket.on('settings:randomizeCards', ({ kind, count }) => {
+    const room = currentRoom(socket);
+    if (!room || !socket.data.playerId) return;
+    try {
+      rooms.randomizeCards(room, socket.data.playerId, kind, count);
+      broadcastRoom(io, room);
+    } catch (err) {
+      sendError(socket, err);
+    }
+  });
+
   socket.on('game:start', () => {
     const room = currentRoom(socket);
     if (!room || !socket.data.playerId) return;

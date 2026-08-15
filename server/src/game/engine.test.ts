@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { VAULTS_TO_WIN } from '@thegang/shared';
+import { BONUS_MALUS_CARDS, VAULTS_TO_WIN, getCardById } from '@thegang/shared';
 import type { Card } from '@thegang/shared';
 import { createShuffledDeck } from './deck';
 import * as engine from './engine';
@@ -431,5 +431,54 @@ describe('engine — token history', () => {
     expect(room.game!.currentRound).toBe('yellow');
     expect(whiteHistory()).toHaveLength(3);
     expect(room.game!.tokensByRound.yellow.history).toEqual([]);
+  });
+});
+
+describe('rooms — randomizing cards', () => {
+  let room: RoomInternal;
+  let alice: string;
+  let bob: string;
+  let carol: string;
+
+  beforeEach(() => {
+    const created = rooms.createRoom('Alice', '#f00');
+    room = created.room;
+    alice = created.player.id;
+    bob = rooms.joinRoom(room, 'Bob', '#0f0').id;
+    carol = rooms.joinRoom(room, 'Carol', '#00f').id;
+  });
+
+  it('picks the requested number of malus cards without touching the bonus selection', () => {
+    rooms.toggleCard(room, alice, 'plan-vole', true); // a bonus card, should survive the malus randomize
+    rooms.randomizeCards(room, alice, 'malus', 3);
+
+    const enabled = room.settings.enabledCardIds.map((id) => getCardById(id)!);
+    const malus = enabled.filter((c) => c.kind === 'malus');
+    const bonus = enabled.filter((c) => c.kind === 'bonus');
+    expect(malus).toHaveLength(3);
+    expect(bonus.map((c) => c.id)).toEqual(['plan-vole']);
+  });
+
+  it('replaces a previous random malus pick rather than accumulating', () => {
+    rooms.randomizeCards(room, alice, 'malus', 5);
+    rooms.randomizeCards(room, alice, 'malus', 2);
+    const malusCount = room.settings.enabledCardIds.filter((id) => getCardById(id)!.kind === 'malus').length;
+    expect(malusCount).toBe(2);
+  });
+
+  it('clamps the count to the number of cards actually available', () => {
+    rooms.randomizeCards(room, alice, 'bonus', 999);
+    const bonusCount = room.settings.enabledCardIds.filter((id) => getCardById(id)!.kind === 'bonus').length;
+    expect(bonusCount).toBe(BONUS_MALUS_CARDS.filter((c) => c.kind === 'bonus').length);
+  });
+
+  it('rejects a non-host', () => {
+    expect(() => rooms.randomizeCards(room, bob, 'malus', 2)).toThrow(GameError);
+    expect(() => rooms.randomizeCards(room, carol, 'bonus', 2)).toThrow(GameError);
+  });
+
+  it('rejects once the game has left the lobby', () => {
+    engine.startGame(room, alice);
+    expect(() => rooms.randomizeCards(room, alice, 'malus', 2)).toThrow(GameError);
   });
 });

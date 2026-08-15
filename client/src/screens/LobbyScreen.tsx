@@ -1,12 +1,32 @@
 import { useState } from 'react';
 import { BONUS_MALUS_CARDS, MAX_PLAYERS, MIN_PLAYERS } from '@thegang/shared';
-import { kickPlayer, leaveRoom, startGame, toggleCard } from '../actions';
+import { kickPlayer, leaveRoom, randomizeCards, startGame, toggleCard } from '../actions';
 import { Avatar } from '../components/Avatar';
 import { clearSession } from '../session';
 import { useGameDispatch, useGameState } from '../state/GameContext';
 
 const MALUS_CARDS = BONUS_MALUS_CARDS.filter((card) => card.kind === 'malus');
 const BONUS_CARDS = BONUS_MALUS_CARDS.filter((card) => card.kind === 'bonus');
+
+function RandomizePicker({ max, onPick }: { max: number; onPick: (count: number) => void }) {
+  const [count, setCount] = useState(Math.min(3, max));
+  return (
+    <div className="row" style={{ gap: '0.4rem', flexWrap: 'wrap' }}>
+      <input
+        type="number"
+        className="input"
+        style={{ width: '4rem', minHeight: '40px', padding: '0.5rem', textAlign: 'center' }}
+        min={0}
+        max={max}
+        value={count}
+        onChange={(e) => setCount(Math.max(0, Math.min(max, Math.floor(Number(e.target.value)) || 0)))}
+      />
+      <button type="button" className="btn btn-secondary" onClick={() => onPick(count)}>
+        🎲 Aléatoire
+      </button>
+    </div>
+  );
+}
 
 export function LobbyScreen() {
   const { room, myPlayerId } = useGameState();
@@ -77,7 +97,10 @@ export function LobbyScreen() {
       </div>
 
       <div className="stack">
-        <h2>Cartes malus (plus difficile)</h2>
+        <div className="row-between" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+          <h2>Cartes malus (plus difficile)</h2>
+          {isHost && <RandomizePicker max={MALUS_CARDS.length} onPick={(n) => randomizeCards('malus', n)} />}
+        </div>
         <div>
           {MALUS_CARDS.map((card) => (
             <label key={card.id} className="checklist-item">
@@ -97,7 +120,10 @@ export function LobbyScreen() {
       </div>
 
       <div className="stack">
-        <h2>Cartes bonus (plus facile)</h2>
+        <div className="row-between" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+          <h2>Cartes bonus (plus facile)</h2>
+          {isHost && <RandomizePicker max={BONUS_CARDS.length} onPick={(n) => randomizeCards('bonus', n)} />}
+        </div>
         <div>
           {BONUS_CARDS.map((card) => (
             <label key={card.id} className="checklist-item">

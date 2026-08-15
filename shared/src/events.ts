@@ -29,6 +29,7 @@ export interface ClientToServerEvents {
   'room:leave': () => void;
   'room:kick': (payload: { playerId: string }) => void;
   'settings:toggleCard': (payload: { cardId: string; enabled: boolean }) => void;
+  'settings:randomizeCards': (payload: { kind: 'bonus' | 'malus'; count: number }) => void;
   'game:start': () => void;
   'token:take': (payload: { stars: number }) => void;
   'token:release': () => void;

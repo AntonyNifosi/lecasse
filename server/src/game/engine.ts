@@ -20,6 +20,7 @@ import {
 } from '@thegang/shared';
 import { createShuffledDeck } from './deck';
 import { GameError } from './errors';
+import { pickRandom, shuffle } from './random';
 import { getPlayer, requireHost } from './rooms';
 import type { InternalGameState, InternalPlayer, RoomInternal, SideEffect } from './roomTypes';
 
@@ -53,19 +54,6 @@ function neighbor(room: RoomInternal, playerId: string, direction: 'left' | 'rig
   const n = room.players.length;
   const delta = direction === 'right' ? 1 : -1;
   return room.players[(idx + delta + n) % n];
-}
-
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function shuffle<T>(arr: T[]): T[] {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
 }
 
 function hasSharedRank(cards: Card[]): boolean {
