@@ -286,6 +286,23 @@ p {
   color: var(--gold-strong);
 }
 
+/* Game menu (floating trigger, visible on GameBoard/Showdown/HeistResult) */
+
+.game-menu-trigger {
+  position: fixed;
+  top: max(0.6rem, var(--safe-top));
+  left: 0.6rem;
+  z-index: 40;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  font-size: 1.1rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
 /* Playing cards */
 
 .playing-card {
@@ -590,6 +607,31 @@ p {
   font-weight: 700;
   color: #14100a;
   flex-shrink: 0;
+}
+
+.token-history {
+  width: 100%;
+  max-height: 8.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--surface-raised);
+  border-radius: var(--radius-md);
+}
+
+.token-history-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+}
+
+.token-history-entry strong {
+  color: var(--fg);
+  font-weight: 600;
 }
 
 .round-banner {

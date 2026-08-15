@@ -36,7 +36,7 @@ function isRoundActive(cardDef: BonusMalusCard | undefined, round: RoundColor): 
 function emptyRoundTokens(color: RoundColor, starsAvailable: number[], active: boolean): RoundTokens {
   const holderByStars: Record<number, string | null> = {};
   for (const s of starsAvailable) holderByStars[s] = null;
-  return { color, active, starsAvailable: active ? starsAvailable : [], holderByStars, lockedStars: [] };
+  return { color, active, starsAvailable: active ? starsAvailable : [], holderByStars, lockedStars: [], history: [] };
 }
 
 function requireGame(room: RoomInternal): InternalGameState {
@@ -281,10 +281,17 @@ export function takeToken(room: RoomInternal, playerId: string, stars: number): 
   if (rs.holderByStars[stars] === playerId) return [];
   if (rs.lockedStars.includes(stars)) throw new GameError('TOKEN_LOCKED', 'Ce jeton est verrouillé.');
 
+  const seized = rs.holderByStars[stars];
+  if (seized) rs.history.push({ stars, playerId: seized, action: 'release' });
+
   for (const s of rs.starsAvailable) {
-    if (rs.holderByStars[s] === playerId) rs.holderByStars[s] = null;
+    if (rs.holderByStars[s] === playerId) {
+      rs.history.push({ stars: s, playerId, action: 'release' });
+      rs.holderByStars[s] = null;
+    }
   }
   rs.holderByStars[stars] = playerId;
+  rs.history.push({ stars, playerId, action: 'take' });
 
   const cardDef = activeCardDef(game);
   if (cardDef?.effect.kind === 'lockTokens' && (cardDef.effect.rounds as RoundColor[]).includes(game.currentRound)) {
@@ -307,6 +314,7 @@ export function releaseToken(room: RoomInternal, playerId: string): void {
   if (currentStar === undefined) return;
   if (rs.lockedStars.includes(currentStar)) throw new GameError('TOKEN_LOCKED', 'Ce jeton est verrouillé.');
   rs.holderByStars[currentStar] = null;
+  rs.history.push({ stars: currentStar, playerId, action: 'release' });
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useReducer, type Dispatch, type ReactNode } from 'react';
 import type { Card, PlayerPrivate, RoomPublicState } from '@thegang/shared';
+import { rejoinRoom } from '../actions';
+import { clearSession, loadSession } from '../session';
 import { socket } from '../socket';
 
 export interface Notification {
@@ -73,7 +75,30 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
-    const onConnect = () => dispatch({ type: 'CONNECTED' });
+    // socket.io-client reconnects automatically after a transient drop (screen lock,
+    // background tab throttling, brief wifi/cellular handoff — all routine on mobile),
+    // but that transport-level reconnect doesn't by itself re-run the app's room:rejoin
+    // handshake. Without redoing it here, the socket comes back with a fresh id that the
+    // server has never associated with a player, so this client would look "connected"
+    // locally while being invisible to the room. The very first connect is already
+    // handled by the mount-time rejoin in App.tsx's Router, so this only re-fires it on
+    // the second and later connects.
+    let hasConnectedBefore = false;
+    const onConnect = () => {
+      dispatch({ type: 'CONNECTED' });
+      if (hasConnectedBefore) {
+        const session = loadSession();
+        if (session) {
+          rejoinRoom(session.roomCode, session.playerId, session.secretToken).then((res) => {
+            if (!res.ok) {
+              clearSession();
+              dispatch({ type: 'LEFT_ROOM' });
+            }
+          });
+        }
+      }
+      hasConnectedBefore = true;
+    };
     const onDisconnect = () => dispatch({ type: 'DISCONNECTED' });
     const onRoomState = (room: RoomPublicState) => dispatch({ type: 'ROOM_STATE', room });
     const onPrivate = (data: PlayerPrivate) => dispatch({ type: 'PRIVATE_STATE', data });

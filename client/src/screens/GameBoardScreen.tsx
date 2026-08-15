@@ -140,6 +140,22 @@ export function GameBoardScreen() {
             })}
           </div>
         )}
+        {rs.history.length > 0 && (
+          <div className="token-history">
+            {[...rs.history].reverse().map((entry, i) => {
+              const player = room.players.find((p) => p.id === entry.playerId);
+              return (
+                <div key={i} className="token-history-entry">
+                  <Avatar name={player?.name ?? '?'} color={player?.colorTag ?? '#888'} size="sm" />
+                  <span>
+                    <strong>{player?.name ?? '?'}</strong> {entry.action === 'take' ? 'a pris' : 'a relâché'} le jeton{' '}
+                    {entry.stars}★
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="divider" />

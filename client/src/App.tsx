@@ -3,6 +3,7 @@ import { clearSession, loadSession } from './session';
 import { rejoinRoom } from './actions';
 import { GameProvider, useGameDispatch, useGameState, type GameState } from './state/GameContext';
 import { PlayingCard } from './components/PlayingCard';
+import { GameMenu } from './components/GameMenu';
 import { HomeScreen } from './screens/HomeScreen';
 import { LobbyScreen } from './screens/LobbyScreen';
 import { GameBoardScreen } from './screens/GameBoardScreen';
@@ -10,14 +11,29 @@ import { ShowdownScreen } from './screens/ShowdownScreen';
 import { HeistResultScreen } from './screens/HeistResultScreen';
 import { GameEndScreen } from './screens/GameEndScreen';
 
-function renderScreen(state: GameState) {
+// The server resolves the heist (and, on the last one, ends the match) in the same
+// update that records the final reveal, so both beats must be gated on a local ack
+// rather than derived straight from state — otherwise the last card's reveal jumps
+// straight past it (first to the heist result, then possibly straight to GameEnd) and
+// the player never actually sees what just got revealed.
+function renderScreen(
+  state: GameState,
+  showdownAcked: boolean,
+  onAckShowdown: () => void,
+  finalAcked: boolean,
+  onAckFinal: () => void,
+) {
   const { room } = state;
   if (!room) return <HomeScreen />;
   if (room.status === 'lobby') return <LobbyScreen />;
-  if (room.status === 'ended') return <GameEndScreen />;
   const round = room.game?.currentRound;
-  if (round === 'showdown') return <ShowdownScreen />;
-  if (round === 'result') return <HeistResultScreen />;
+  if (round === 'showdown' || (round === 'result' && !showdownAcked)) {
+    return <ShowdownScreen onContinue={onAckShowdown} />;
+  }
+  if (round === 'result' && !(room.status === 'ended' && finalAcked)) {
+    return <HeistResultScreen final={room.status === 'ended'} onContinue={onAckFinal} />;
+  }
+  if (room.status === 'ended') return <GameEndScreen />;
   return <GameBoardScreen />;
 }
 
@@ -64,6 +80,10 @@ function Router() {
   const state = useGameState();
   const dispatch = useGameDispatch();
   const [rejoinAttempted, setRejoinAttempted] = useState(false);
+  const [showdownAcked, setShowdownAcked] = useState(false);
+  const [finalAcked, setFinalAcked] = useState(false);
+  const roomStatus = state.room?.status;
+  const round = state.room?.game?.currentRound;
 
   useEffect(() => {
     const session = loadSession();
@@ -82,6 +102,18 @@ function Router() {
       .finally(() => setRejoinAttempted(true));
   }, [dispatch]);
 
+  // Reset the ack as soon as we leave the 'ended' status (rematch or a fresh room),
+  // so it doesn't leak into the next game's own final-heist result.
+  useEffect(() => {
+    if (roomStatus !== 'ended') setFinalAcked(false);
+  }, [roomStatus]);
+
+  // Same idea for the showdown-complete ack: reset it the moment we're not sitting on
+  // a resolved heist, so it's fresh again for the next one.
+  useEffect(() => {
+    if (round !== 'result') setShowdownAcked(false);
+  }, [round]);
+
   if (!rejoinAttempted) {
     return (
       <div className="overlay">
@@ -93,7 +125,8 @@ function Router() {
 
   return (
     <>
-      {renderScreen(state)}
+      {renderScreen(state, showdownAcked, () => setShowdownAcked(true), finalAcked, () => setFinalAcked(true))}
+      {roomStatus === 'playing' && <GameMenu />}
       <Toasts />
       {state.room && state.connection === 'disconnected' && (
         <div className="overlay">

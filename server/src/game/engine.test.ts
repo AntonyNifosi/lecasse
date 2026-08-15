@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { VAULTS_TO_WIN } from '@thegang/shared';
 import type { Card } from '@thegang/shared';
 import { createShuffledDeck } from './deck';
 import * as engine from './engine';
@@ -271,5 +272,164 @@ describe('engine — bonus/malus cards', () => {
 
     expect(room.game!.showdown!.revealed.every((r) => r.orderOk)).toBe(true);
     expect(room.game!.vaults).toBe(1);
+  });
+
+  it('"alarme silencieuse" gates the top red token behind a guess, and fails the heist on a wrong guess even when token order is correct', () => {
+    winFirstHeist('alarme-silencieuse');
+    engine.nextHeist(room);
+    expect(room.game!.activeCard?.cardId).toBe('alarme-silencieuse');
+
+    forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], COMMUNITY);
+    fastForwardToRedRound(room, [alice, bob, carol]);
+    claimRound(room, [
+      { playerId: alice, stars: 1 },
+      { playerId: bob, stars: 2 },
+      { playerId: carol, stars: 3 }, // carol (two pair) is correctly the strongest -> the guess target
+    ]);
+
+    expect(room.game!.showdown!.guessGate).toMatchObject({ guessType: 'category', targetPlayerId: carol, resolved: false });
+
+    engine.revealNext(room); // alice
+    engine.revealNext(room); // bob
+    expect(() => engine.revealNext(room)).toThrow(GameError); // carol is gated until the group guesses
+
+    engine.submitGuess(room, alice, 'trips'); // wrong — carol actually has two pair
+    expect(room.game!.showdown!.guessGate!.correct).toBe(false);
+
+    engine.revealNext(room); // carol, now unblocked
+    expect(room.game!.showdown!.revealed[2].orderOk).toBe(true); // the token order itself was correct
+    expect(room.game!.showdown!.failed).toBe(true); // but the wrong guess fails the heist regardless
+    expect(room.game!.alarms).toBe(1);
+  });
+
+  it('rejects a guess submitted by the target themselves', () => {
+    winFirstHeist('alarme-silencieuse');
+    engine.nextHeist(room);
+    forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], COMMUNITY);
+    fastForwardToRedRound(room, [alice, bob, carol]);
+    claimRound(room, [
+      { playerId: alice, stars: 1 },
+      { playerId: bob, stars: 2 },
+      { playerId: carol, stars: 3 },
+    ]);
+    engine.revealNext(room);
+    engine.revealNext(room);
+    expect(() => engine.submitGuess(room, carol, 'twoPair')).toThrow(GameError);
+  });
+});
+
+describe('rooms — joining between games', () => {
+  let room: RoomInternal;
+  let alice: string;
+  let bob: string;
+  let carol: string;
+
+  beforeEach(() => {
+    const created = rooms.createRoom('Alice', '#f00');
+    room = created.room;
+    alice = created.player.id;
+    bob = rooms.joinRoom(room, 'Bob', '#0f0').id;
+    carol = rooms.joinRoom(room, 'Carol', '#00f').id;
+  });
+
+  it('rejects joining while a heist is in progress', () => {
+    engine.startGame(room, alice);
+    expect(room.status).toBe('playing');
+    expect(() => rooms.joinRoom(room, 'Dave', '#ff0')).toThrow(GameError);
+  });
+
+  it('allows joining once the match has ended, and folds the newcomer into the rematch', () => {
+    engine.startGame(room, alice);
+    room.game!.vaults = VAULTS_TO_WIN - 1; // this heist's win ends the match
+    forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], COMMUNITY);
+    fastForwardToRedRound(room, [alice, bob, carol]);
+    claimRound(room, [
+      { playerId: alice, stars: 1 },
+      { playerId: bob, stars: 2 },
+      { playerId: carol, stars: 3 },
+    ]);
+    engine.revealNext(room);
+    engine.revealNext(room);
+    engine.revealNext(room);
+    expect(room.status).toBe('ended');
+    expect(room.finalResult).toBe('win');
+
+    const dave = rooms.joinRoom(room, 'Dave', '#ff0');
+    expect(room.players.map((p) => p.id)).toContain(dave.id);
+
+    engine.rematch(room);
+    expect(room.status).toBe('lobby');
+    expect(room.players).toHaveLength(4);
+  });
+});
+
+describe('engine — token history', () => {
+  let room: RoomInternal;
+  let alice: string;
+  let bob: string;
+  let carol: string;
+
+  beforeEach(() => {
+    const created = rooms.createRoom('Alice', '#f00');
+    room = created.room;
+    alice = created.player.id;
+    bob = rooms.joinRoom(room, 'Bob', '#0f0').id;
+    carol = rooms.joinRoom(room, 'Carol', '#00f').id;
+    engine.startGame(room, alice);
+  });
+
+  function whiteHistory() {
+    return room.game!.tokensByRound.white.history;
+  }
+
+  it('logs a take', () => {
+    engine.takeToken(room, alice, 1);
+    expect(whiteHistory()).toEqual([{ stars: 1, playerId: alice, action: 'take' }]);
+  });
+
+  it('logs a release for the old star and a take for the new one when switching', () => {
+    engine.takeToken(room, alice, 1);
+    engine.takeToken(room, alice, 2);
+    expect(whiteHistory()).toEqual([
+      { stars: 1, playerId: alice, action: 'take' },
+      { stars: 1, playerId: alice, action: 'release' },
+      { stars: 2, playerId: alice, action: 'take' },
+    ]);
+  });
+
+  it('logs a release for whoever gets seized when another player grabs their star', () => {
+    engine.takeToken(room, alice, 1);
+    engine.takeToken(room, bob, 1);
+    expect(whiteHistory()).toEqual([
+      { stars: 1, playerId: alice, action: 'take' },
+      { stars: 1, playerId: alice, action: 'release' },
+      { stars: 1, playerId: bob, action: 'take' },
+    ]);
+    expect(room.game!.tokensByRound.white.holderByStars[1]).toBe(bob);
+  });
+
+  it('logs an explicit release', () => {
+    engine.takeToken(room, alice, 1);
+    engine.releaseToken(room, alice);
+    expect(whiteHistory()).toEqual([
+      { stars: 1, playerId: alice, action: 'take' },
+      { stars: 1, playerId: alice, action: 'release' },
+    ]);
+    expect(room.game!.tokensByRound.white.holderByStars[1]).toBeNull();
+  });
+
+  it('does not log anything for a no-op take of an already-held star', () => {
+    engine.takeToken(room, alice, 1);
+    engine.takeToken(room, alice, 1);
+    expect(whiteHistory()).toEqual([{ stars: 1, playerId: alice, action: 'take' }]);
+  });
+
+  it('keeps each round its own separate history', () => {
+    engine.takeToken(room, alice, 1);
+    engine.takeToken(room, bob, 2);
+    engine.takeToken(room, carol, 3);
+    expect(room.game!.currentRound).toBe('yellow');
+    expect(whiteHistory()).toHaveLength(3);
+    expect(room.game!.tokensByRound.yellow.history).toEqual([]);
   });
 });

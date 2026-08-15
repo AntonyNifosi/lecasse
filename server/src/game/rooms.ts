@@ -69,7 +69,9 @@ export function requireHost(room: RoomInternal, playerId: string): void {
 }
 
 export function joinRoom(room: RoomInternal, name: string, colorTag: string): InternalPlayer {
-  if (room.status !== 'lobby') throw new GameError('INVALID_STATE', 'La partie a déjà commencé.');
+  // 'lobby' (pre-game) and 'ended' (between two games, before a rematch) both accept
+  // newcomers — only a heist actually in progress ('playing') is off-limits.
+  if (room.status === 'playing') throw new GameError('INVALID_STATE', 'Une partie est en cours, réessayez entre deux parties.');
   if (room.players.length >= MAX_PLAYERS) throw new GameError('ROOM_FULL', 'Cette salle est complète.');
   const trimmed = name.trim().slice(0, 20) || 'Gangster';
   const taken = room.players.some((p) => p.name.toLowerCase() === trimmed.toLowerCase());

@@ -36,12 +36,19 @@ export const VAULTS_TO_WIN = 3;
 export const ALARMS_TO_LOSE = 3;
 export const BASE_HOLE_CARDS = 2;
 
+export interface TokenHistoryEntry {
+  stars: number;
+  playerId: string;
+  action: 'take' | 'release';
+}
+
 export interface RoundTokens {
   color: RoundColor;
   active: boolean; // false if this round's token step was skipped by a malus card
   starsAvailable: number[]; // e.g. [1,2,3,4] for a 4-player room
   holderByStars: Record<number, string | null>; // stars -> playerId | null
   lockedStars: number[]; // stars that can no longer change owner this round
+  history: TokenHistoryEntry[]; // chronological take/release log for this round only
 }
 
 export interface ShowdownEntry {

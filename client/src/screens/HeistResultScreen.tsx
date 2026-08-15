@@ -2,7 +2,13 @@ import { ALARMS_TO_LOSE, VAULTS_TO_WIN } from '@thegang/shared';
 import { nextHeist } from '../actions';
 import { useGameState } from '../state/GameContext';
 
-export function HeistResultScreen() {
+interface Props {
+  /** True once this heist has already ended the match (3rd vault or 3rd alarm). */
+  final?: boolean;
+  onContinue?: () => void;
+}
+
+export function HeistResultScreen({ final = false, onContinue }: Props) {
   const { room } = useGameState();
   const game = room?.game;
   if (!room || !game || !game.lastResult) return null;
@@ -36,8 +42,12 @@ export function HeistResultScreen() {
         </div>
       </div>
 
-      <button type="button" className="btn btn-primary btn-lg btn-block" onClick={() => nextHeist()}>
-        Braquage suivant
+      <button
+        type="button"
+        className="btn btn-primary btn-lg btn-block"
+        onClick={() => (final ? onContinue?.() : nextHeist())}
+      >
+        {final ? 'Voir le résultat final' : 'Braquage suivant'}
       </button>
     </div>
   );

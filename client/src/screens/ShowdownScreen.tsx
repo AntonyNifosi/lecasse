@@ -30,13 +30,18 @@ function GuessPrompt({ guessType }: { guessType: 'category' | 'rank' }) {
   );
 }
 
-export function ShowdownScreen() {
+interface Props {
+  onContinue?: () => void;
+}
+
+export function ShowdownScreen({ onContinue }: Props) {
   const { room, myPlayerId } = useGameState();
   const game = room?.game;
   const sd = game?.showdown;
   if (!room || !game || !sd) return null;
 
   const nextIndex = sd.revealed.length;
+  const allRevealed = nextIndex >= sd.order.length;
   const nextPlayerId = sd.order[nextIndex];
   const gate = sd.guessGate;
   const gateBlocking = gate && !gate.resolved && gate.targetPlayerId === nextPlayerId;
@@ -87,7 +92,11 @@ export function ShowdownScreen() {
       </div>
 
       <div className="sticky-footer stack">
-        {gateBlocking ? (
+        {allRevealed ? (
+          <button type="button" className="btn btn-primary btn-block btn-lg" onClick={() => onContinue?.()}>
+            Voir le résultat du braquage
+          </button>
+        ) : gateBlocking ? (
           iAmTarget ? (
             <p className="muted center">Le reste du gang doit deviner avant que vous ne révéliez votre main…</p>
           ) : (
