@@ -30,7 +30,9 @@ export function GameEndScreen() {
 
   return (
     <div className="screen screen-centered">
-      <div style={{ fontSize: '4rem' }}>{won ? '🥳' : '💀'}</div>
+      <div className="result-emoji" style={{ fontSize: '4rem' }}>
+        {won ? '🥳' : '💀'}
+      </div>
       <h1 style={{ color: won ? 'var(--gold)' : 'var(--red)' }}>{won ? "Le gang s'en sort !" : 'Le gang est fait !'}</h1>
       <p className="muted">
         {won ? 'Trois coffres ouverts avant trois alarmes : bravo.' : 'Trois alarmes déclenchées : la partie est terminée.'}

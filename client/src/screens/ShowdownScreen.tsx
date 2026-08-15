@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { HAND_CATEGORIES, type GuessGate, type HandCategory, type Rank } from '@thegang/shared';
 import { revealNext, submitGuess } from '../actions';
 import { Avatar } from '../components/Avatar';
+import { GameMenu } from '../components/GameMenu';
 import { PlayingCard } from '../components/PlayingCard';
 import { useGameState } from '../state/GameContext';
 import { HAND_CATEGORY_LABELS, rankLabel } from '../theme';
@@ -70,7 +71,10 @@ export function ShowdownScreen({ onContinue }: Props) {
 
   return (
     <div className="screen">
-      <h2>L'abattage</h2>
+      <div className="row-between">
+        <h2>L'abattage</h2>
+        <GameMenu />
+      </div>
       <p className="muted">Du jeton le moins étoilé au plus étoilé. Une main plus faible que la précédente fait échouer le braquage.</p>
 
       <div className="stack center">

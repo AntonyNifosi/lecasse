@@ -1,5 +1,6 @@
 import { VAULTS_TO_WIN } from '@thegang/shared';
 import { nextHeist } from '../actions';
+import { GameMenu } from '../components/GameMenu';
 import { useGameState } from '../state/GameContext';
 
 interface Props {
@@ -27,8 +28,13 @@ export function HeistResultScreen({ final = false, onContinue }: Props) {
   }
 
   return (
-    <div className="screen screen-centered">
-      <div style={{ fontSize: '4rem' }}>{success ? '🏆' : '🚨'}</div>
+    <div className="screen screen-centered" style={{ position: 'relative' }}>
+      <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem' }}>
+        <GameMenu />
+      </div>
+      <div className="result-emoji" style={{ fontSize: '4rem' }}>
+        {success ? '🏆' : '🚨'}
+      </div>
       <h1 style={{ color: success ? 'var(--gold)' : 'var(--red)' }}>{success ? 'Casse réussi !' : 'Alarme déclenchée !'}</h1>
       <p className="muted">{success ? 'Le classement était le bon, un coffre est ouvert.' : failureMessage}</p>
 

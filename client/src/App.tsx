@@ -3,7 +3,6 @@ import { clearSession, loadSession } from './session';
 import { rejoinRoom } from './actions';
 import { GameProvider, useGameDispatch, useGameState, type GameState } from './state/GameContext';
 import { PlayingCard } from './components/PlayingCard';
-import { GameMenu } from './components/GameMenu';
 import { HomeScreen } from './screens/HomeScreen';
 import { LobbyScreen } from './screens/LobbyScreen';
 import { GameBoardScreen } from './screens/GameBoardScreen';
@@ -126,7 +125,6 @@ function Router() {
   return (
     <>
       {renderScreen(state, showdownAcked, () => setShowdownAcked(true), finalAcked, () => setFinalAcked(true))}
-      {roomStatus === 'playing' && <GameMenu />}
       <Toasts />
       {state.room && state.connection === 'disconnected' && (
         <div className="overlay">

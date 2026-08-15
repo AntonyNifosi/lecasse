@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getCardById, VAULTS_TO_WIN, type RoundColor } from '@thegang/shared';
 import { releaseToken, takeToken } from '../actions';
 import { Avatar } from '../components/Avatar';
+import { GameMenu } from '../components/GameMenu';
 import { HandRankingModal } from '../components/HandRankingModal';
 import { PlayingCard } from '../components/PlayingCard';
 import { useGameState } from '../state/GameContext';
@@ -12,10 +13,16 @@ const ROUND_SEQUENCE: RoundColor[] = ['white', 'yellow', 'orange', 'red'];
 export function GameBoardScreen() {
   const { room, myPlayerId, myHoleCards } = useGameState();
   const [showHelp, setShowHelp] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const game = room?.game;
+  const roundColor = (game?.currentRound as RoundColor) ?? null;
+  // Collapsed by default each round — the token row already shows the current state,
+  // this is just for catching up on who fumbled with what before you looked.
+  useEffect(() => {
+    setShowHistory(false);
+  }, [roundColor]);
   if (!room || !game) return null;
 
-  const roundColor = game.currentRound as RoundColor;
   const rs = game.tokensByRound[roundColor];
   const activeCards = game.activeCards.map((ac) => getCardById(ac.cardId)).filter((c): c is NonNullable<typeof c> => !!c);
   const currentIdx = ROUND_SEQUENCE.indexOf(roundColor);
@@ -27,9 +34,12 @@ export function GameBoardScreen() {
           <h2>Braquage n°{game.heistNumber}</h2>
           <p className="muted">{ROUND_LABELS[roundColor]}</p>
         </div>
-        <button type="button" className="btn btn-ghost" onClick={() => setShowHelp(true)}>
-          Aide
-        </button>
+        <div className="row" style={{ gap: '0.3rem' }}>
+          <GameMenu />
+          <button type="button" className="btn btn-ghost" onClick={() => setShowHelp(true)}>
+            Aide
+          </button>
+        </div>
       </div>
 
       <div className="row-between">
@@ -141,6 +151,11 @@ export function GameBoardScreen() {
           </div>
         )}
         {rs.history.length > 0 && (
+          <button type="button" className="btn btn-ghost history-toggle" onClick={() => setShowHistory((v) => !v)}>
+            {showHistory ? '▾' : '▸'} Historique ({rs.history.length})
+          </button>
+        )}
+        {showHistory && rs.history.length > 0 && (
           <div className="token-history">
             {[...rs.history].reverse().map((entry, i) => {
               const player = room.players.find((p) => p.id === entry.playerId);

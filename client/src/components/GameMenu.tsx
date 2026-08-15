@@ -36,12 +36,7 @@ export function GameMenu() {
 
   return (
     <>
-      <button
-        type="button"
-        className="game-menu-trigger"
-        aria-label="Menu de la partie"
-        onClick={() => setOpen(true)}
-      >
+      <button type="button" className="btn btn-ghost" aria-label="Menu de la partie" onClick={() => setOpen(true)}>
         ☰
       </button>
 

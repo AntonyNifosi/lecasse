@@ -286,23 +286,6 @@ p {
   color: var(--gold-strong);
 }
 
-/* Game menu (floating trigger, visible on GameBoard/Showdown/HeistResult) */
-
-.game-menu-trigger {
-  position: fixed;
-  top: max(0.6rem, var(--safe-top));
-  left: 0.6rem;
-  z-index: 40;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  width: 2.4rem;
-  height: 2.4rem;
-  padding: 0;
-  font-size: 1.1rem;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-}
-
 /* Playing cards */
 
 .playing-card {
@@ -338,6 +321,10 @@ p {
   border: 1px solid var(--border);
 }
 
+.playing-card:not(.face-down):not(.placeholder) {
+  animation: cardReveal 0.35s ease;
+}
+
 .card-row {
   display: flex;
   gap: 0.5rem;
@@ -359,7 +346,7 @@ p {
   border: 2px solid transparent;
   cursor: pointer;
   touch-action: manipulation;
-  transition: transform 0.1s ease;
+  transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   color: #14100a;
   flex-shrink: 0;
 }
@@ -375,6 +362,8 @@ p {
 
 .token.mine {
   border-color: var(--fg);
+  box-shadow: 0 0 0 4px rgba(244, 241, 232, 0.16);
+  transform: scale(1.06);
 }
 
 .token-row {
@@ -436,6 +425,12 @@ p {
   border-radius: 999px;
   background: var(--surface-raised);
   border: 1px solid var(--border);
+  transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+}
+
+.pill.filled-gold,
+.pill.filled-red {
+  animation: pillPop 0.35s ease;
 }
 
 .pill.filled-gold {
@@ -475,6 +470,7 @@ p {
   width: 100%;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
   font-size: 0.9rem;
+  animation: toastIn 0.25s ease;
 }
 
 .toast.error {
@@ -537,6 +533,7 @@ p {
   max-height: 85dvh;
   overflow-y: auto;
   padding-bottom: max(1.25rem, var(--safe-bottom));
+  animation: sheetIn 0.25s ease;
 }
 
 @media (min-width: 640px) {
@@ -640,6 +637,7 @@ p {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  animation: bannerIn 0.35s ease;
 }
 
 .round-banner.malus {
@@ -657,4 +655,159 @@ p {
   bottom: 0;
   padding-top: 0.5rem;
   background: linear-gradient(to top, var(--bg) 60%, transparent);
+}
+
+.history-toggle {
+  align-self: center;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.85rem;
+  min-height: auto;
+}
+
+.result-emoji {
+  animation: resultPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Animations */
+
+@keyframes bannerIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardReveal {
+  from {
+    opacity: 0;
+    transform: scale(0.85) rotateY(-25deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotateY(0);
+  }
+}
+
+@keyframes resultPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) rotate(-8deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15) rotate(4deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes pillPop {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Mobile compaction — tighter spacing and slightly smaller elements so a full
+   heist (board + tokens + history + gang tracker) needs less scrolling on a phone. */
+@media (max-width: 480px) {
+  .screen {
+    padding: 0.9rem;
+    gap: 0.6rem;
+  }
+
+  .stack {
+    gap: 0.5rem;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+  }
+
+  h2 {
+    font-size: 1.15rem;
+  }
+
+  .card {
+    padding: 0.85rem;
+  }
+
+  .round-banner {
+    padding: 0.65rem 0.75rem;
+  }
+
+  .card-row {
+    gap: 0.4rem;
+  }
+
+  .playing-card {
+    width: 2.5rem;
+    height: 3.5rem;
+    font-size: 0.9rem;
+  }
+
+  .playing-card.large {
+    width: 3.4rem;
+    height: 4.75rem;
+    font-size: 1.2rem;
+  }
+
+  .token {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 0.95rem;
+  }
+
+  .avatar {
+    width: 1.9rem;
+    height: 1.9rem;
+    font-size: 0.8rem;
+  }
+
+  .divider {
+    margin: 0.1rem 0;
+  }
 }
