@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BONUS_MALUS_CARDS, VAULTS_TO_WIN, getCardById } from '@thegang/shared';
 import type { Card } from '@thegang/shared';
 import { createShuffledDeck } from './deck';
@@ -199,7 +199,7 @@ describe('engine — bonus/malus cards', () => {
   it('"jetons collés" locks the lowest white token the moment it is claimed', () => {
     winFirstHeist('jetons-colles');
     engine.nextHeist(room);
-    expect(room.game!.activeCard?.cardId).toBe('jetons-colles');
+    expect(room.game!.activeCards.map((c) => c.cardId)).toEqual(['jetons-colles']);
 
     engine.takeToken(room, alice, 1);
     expect(() => engine.takeToken(room, bob, 1)).toThrow(GameError);
@@ -214,7 +214,7 @@ describe('engine — bonus/malus cards', () => {
   it('"vigile zélé" skips the white token round entirely and jumps straight to the flop', () => {
     winFirstHeist('vigile-zele');
     engine.nextHeist(room);
-    expect(room.game!.activeCard?.cardId).toBe('vigile-zele');
+    expect(room.game!.activeCards.map((c) => c.cardId)).toEqual(['vigile-zele']);
     expect(room.game!.tokensByRound.white.active).toBe(false);
     expect(room.game!.tokensByRound.white.starsAvailable).toEqual([]);
     expect(room.game!.currentRound).toBe('yellow');
@@ -224,7 +224,7 @@ describe('engine — bonus/malus cards', () => {
   it('"mouchard" forces a redraw for the white 1-star holder when the flop has a pair', () => {
     winFirstHeist('mouchard');
     engine.nextHeist(room);
-    expect(room.game!.activeCard?.cardId).toBe('mouchard');
+    expect(room.game!.activeCards.map((c) => c.cardId)).toEqual(['mouchard']);
 
     const pairedFlopCommunity = [card(7, 'S'), card(7, 'H'), card(9, 'D'), card(2, 'C'), card(4, 'S')];
     forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], pairedFlopCommunity);
@@ -274,10 +274,10 @@ describe('engine — bonus/malus cards', () => {
     expect(room.game!.vaults).toBe(1);
   });
 
-  it('"alarme silencieuse" gates the top red token behind a guess, and fails the heist on a wrong guess even when token order is correct', () => {
+  it('"alarme silencieuse" gates the top red token behind a group vote, and fails the heist on a wrong majority even when token order is correct', () => {
     winFirstHeist('alarme-silencieuse');
     engine.nextHeist(room);
-    expect(room.game!.activeCard?.cardId).toBe('alarme-silencieuse');
+    expect(room.game!.activeCards.map((c) => c.cardId)).toEqual(['alarme-silencieuse']);
 
     forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], COMMUNITY);
     fastForwardToRedRound(room, [alice, bob, carol]);
@@ -287,19 +287,50 @@ describe('engine — bonus/malus cards', () => {
       { playerId: carol, stars: 3 }, // carol (two pair) is correctly the strongest -> the guess target
     ]);
 
-    expect(room.game!.showdown!.guessGate).toMatchObject({ guessType: 'category', targetPlayerId: carol, resolved: false });
+    expect(room.game!.showdown!.guessGates).toMatchObject([{ guessType: 'category', targetPlayerId: carol, resolved: false }]);
 
     engine.revealNext(room); // alice
     engine.revealNext(room); // bob
-    expect(() => engine.revealNext(room)).toThrow(GameError); // carol is gated until the group guesses
+    expect(() => engine.revealNext(room)).toThrow(GameError); // carol is gated until the group votes
 
-    engine.submitGuess(room, alice, 'trips'); // wrong — carol actually has two pair
-    expect(room.game!.showdown!.guessGate!.correct).toBe(false);
+    engine.submitGuess(room, alice, 'trips'); // one of two votes — not enough to resolve yet
+    expect(room.game!.showdown!.guessGates[0].resolved).toBe(false);
+    expect(() => engine.revealNext(room)).toThrow(GameError);
+
+    engine.submitGuess(room, bob, 'trips'); // unanimous, wrong — carol actually has two pair
+    expect(room.game!.showdown!.guessGates[0].resolved).toBe(true);
+    expect(room.game!.showdown!.guessGates[0].finalGuess).toBe('trips');
+    expect(room.game!.showdown!.guessGates[0].correct).toBe(false);
 
     engine.revealNext(room); // carol, now unblocked
     expect(room.game!.showdown!.revealed[2].orderOk).toBe(true); // the token order itself was correct
     expect(room.game!.showdown!.failed).toBe(true); // but the wrong guess fails the heist regardless
     expect(room.game!.alarms).toBe(1);
+  });
+
+  it('resolves a split vote by randomly picking among the tied choices', () => {
+    winFirstHeist('alarme-silencieuse');
+    engine.nextHeist(room);
+    forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], COMMUNITY);
+    fastForwardToRedRound(room, [alice, bob, carol]);
+    claimRound(room, [
+      { playerId: alice, stars: 1 },
+      { playerId: bob, stars: 2 },
+      { playerId: carol, stars: 3 },
+    ]);
+    engine.revealNext(room);
+    engine.revealNext(room);
+
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.9); // picks the 2nd of the 2 tied choices
+    try {
+      engine.submitGuess(room, alice, 'trips');
+      engine.submitGuess(room, bob, 'twoPair'); // 1-1 tie between 'trips' and 'twoPair'
+    } finally {
+      randomSpy.mockRestore();
+    }
+
+    expect(room.game!.showdown!.guessGates[0].finalGuess).toBe('twoPair');
+    expect(room.game!.showdown!.guessGates[0].correct).toBe(true); // 'twoPair' happens to be carol's real hand
   });
 
   it('rejects a guess submitted by the target themselves', () => {
@@ -480,5 +511,120 @@ describe('rooms — randomizing cards', () => {
   it('rejects once the game has left the lobby', () => {
     engine.startGame(room, alice);
     expect(() => rooms.randomizeCards(room, alice, 'malus', 2)).toThrow(GameError);
+  });
+});
+
+describe('engine — Pro mode', () => {
+  let room: RoomInternal;
+  let alice: string;
+  let bob: string;
+  let carol: string;
+
+  beforeEach(() => {
+    const created = rooms.createRoom('Alice', '#f00');
+    room = created.room;
+    alice = created.player.id;
+    bob = rooms.joinRoom(room, 'Bob', '#0f0').id;
+    carol = rooms.joinRoom(room, 'Carol', '#00f').id;
+    rooms.setMode(room, alice, 'pro');
+  });
+
+  function winHeist() {
+    forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], COMMUNITY);
+    fastForwardToRedRound(room, [alice, bob, carol]);
+    claimRound(room, [
+      { playerId: alice, stars: 1 },
+      { playerId: bob, stars: 2 },
+      { playerId: carol, stars: 3 },
+    ]);
+    engine.revealNext(room);
+    engine.revealNext(room);
+    engine.revealNext(room);
+  }
+
+  it('keeps one malus card permanently active from heist 1, and adds the normal rotation on top from heist 2', () => {
+    rooms.toggleCard(room, alice, 'jetons-colles', true);
+    rooms.toggleCard(room, alice, 'reperage-laser', true);
+    engine.startGame(room, alice);
+
+    expect(room.game!.activeCards).toHaveLength(1);
+    const permanentId = room.game!.activeCards[0].cardId;
+    expect(['jetons-colles', 'reperage-laser']).toContain(permanentId);
+
+    winHeist();
+    engine.nextHeist(room);
+
+    expect(room.game!.activeCards.map((c) => c.cardId).sort()).toEqual(['jetons-colles', 'reperage-laser'].sort());
+    expect(room.game!.activeCards.some((c) => c.cardId === permanentId)).toBe(true);
+  });
+
+  it('excludes "vigile-zele" from the pool, same as the real Effraction n°1', () => {
+    rooms.toggleCard(room, alice, 'vigile-zele', true);
+    engine.startGame(room, alice);
+    expect(room.game!.activeCards).toEqual([]);
+    expect(room.game!.tokensByRound.white.active).toBe(true);
+  });
+});
+
+describe('engine — Gangster mode', () => {
+  let room: RoomInternal;
+  let alice: string;
+  let bob: string;
+  let carol: string;
+
+  beforeEach(() => {
+    const created = rooms.createRoom('Alice', '#f00');
+    room = created.room;
+    alice = created.player.id;
+    bob = rooms.joinRoom(room, 'Bob', '#0f0').id;
+    carol = rooms.joinRoom(room, 'Carol', '#00f').id;
+    rooms.setMode(room, alice, 'gangster');
+    // "jetons-colles"/"reperage-laser" only lock token ownership — they never touch hole
+    // cards or community cards, so they can't interfere with forceDeal's forced hands.
+    rooms.toggleCard(room, alice, 'jetons-colles', true);
+    rooms.toggleCard(room, alice, 'reperage-laser', true);
+    rooms.toggleCard(room, alice, 'plan-vole', true); // a bonus card — must never actually appear
+  });
+
+  function winHeist() {
+    forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], COMMUNITY);
+    fastForwardToRedRound(room, [alice, bob, carol]);
+    claimRound(room, [
+      { playerId: alice, stars: 1 },
+      { playerId: bob, stars: 2 },
+      { playerId: carol, stars: 3 },
+    ]);
+    engine.revealNext(room);
+    engine.revealNext(room);
+    engine.revealNext(room);
+  }
+
+  it('runs 2 malus cards at once from heist 1, never a bonus, and lowers the losing threshold to 2 alarms', () => {
+    engine.startGame(room, alice);
+    expect(room.game!.activeCards).toHaveLength(2);
+    expect(room.game!.activeCards.every((c) => c.kind === 'malus')).toBe(true);
+    expect(room.game!.alarmsToLose).toBe(2);
+
+    winHeist(); // the outcome doesn't gate Gangster's rotation, only vaults/alarms
+    engine.nextHeist(room);
+    expect(room.game!.activeCards).toHaveLength(2);
+    expect(room.game!.activeCards.every((c) => c.kind === 'malus')).toBe(true);
+  });
+
+  it('swaps out the oldest of the 2 slots for the next queued card each heist', () => {
+    engine.startGame(room, alice);
+    // Seed a 3rd card into the queue so the next rotation pulls in something genuinely
+    // new instead of immediately re-drawing the card that just rotated out.
+    room.cardPools.malusQueue = ['mouchard'];
+    const initial = [...room.game!.activeCards.map((c) => c.cardId)];
+
+    winHeist();
+    engine.nextHeist(room);
+
+    const after = room.game!.activeCards.map((c) => c.cardId);
+    expect(after).toHaveLength(2);
+    expect(after).toContain(initial[1]); // the newest of the original pair survives
+    expect(after).toContain('mouchard'); // the queued card rotates in
+    expect(after).not.toContain(initial[0]); // the oldest was swapped out
   });
 });

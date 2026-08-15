@@ -1,4 +1,4 @@
-import type { Ack, HandCategory, Rank, RejoinAck } from '@thegang/shared';
+import type { Ack, CardMode, HandCategory, Rank, RejoinAck } from '@thegang/shared';
 import { socket } from './socket';
 
 function ensureConnected(): void {
@@ -34,6 +34,10 @@ export function toggleCard(cardId: string, enabled: boolean): void {
 
 export function randomizeCards(kind: 'bonus' | 'malus', count: number): void {
   socket.emit('settings:randomizeCards', { kind, count });
+}
+
+export function setMode(mode: CardMode): void {
+  socket.emit('settings:setMode', { mode });
 }
 
 export function startGame(): void {

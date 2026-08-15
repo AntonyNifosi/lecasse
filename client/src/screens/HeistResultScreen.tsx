@@ -1,4 +1,4 @@
-import { ALARMS_TO_LOSE, VAULTS_TO_WIN } from '@thegang/shared';
+import { VAULTS_TO_WIN } from '@thegang/shared';
 import { nextHeist } from '../actions';
 import { useGameState } from '../state/GameContext';
 
@@ -14,14 +14,23 @@ export function HeistResultScreen({ final = false, onContinue }: Props) {
   if (!room || !game || !game.lastResult) return null;
 
   const success = game.lastResult.outcome === 'success';
+  const sd = game.showdown;
+  const orderBroken = sd?.revealed.some((r) => !r.orderOk) ?? false;
+  const wrongGuesses = sd?.guessGates.filter((g) => g.resolved && g.correct === false) ?? [];
+
+  let failureMessage = "L'ordre des jetons ne correspondait pas à la réalité.";
+  if (!orderBroken && wrongGuesses.length > 0) {
+    failureMessage =
+      wrongGuesses.length > 1
+        ? "L'ordre des jetons était le bon, mais le groupe s'est trompé dans plusieurs devinettes."
+        : "L'ordre des jetons était le bon, mais le groupe s'est trompé dans sa devinette.";
+  }
 
   return (
     <div className="screen screen-centered">
       <div style={{ fontSize: '4rem' }}>{success ? '🏆' : '🚨'}</div>
       <h1 style={{ color: success ? 'var(--gold)' : 'var(--red)' }}>{success ? 'Casse réussi !' : 'Alarme déclenchée !'}</h1>
-      <p className="muted">
-        {success ? 'Le classement était le bon, un coffre est ouvert.' : "L'ordre des jetons ne correspondait pas à la réalité."}
-      </p>
+      <p className="muted">{success ? 'Le classement était le bon, un coffre est ouvert.' : failureMessage}</p>
 
       <div className="row" style={{ gap: '2rem' }}>
         <div className="stack center">
@@ -35,7 +44,7 @@ export function HeistResultScreen({ final = false, onContinue }: Props) {
         <div className="stack center">
           <span className="muted">Alarmes</span>
           <div className="pill-progress">
-            {Array.from({ length: ALARMS_TO_LOSE }, (_, i) => (
+            {Array.from({ length: game.alarmsToLose }, (_, i) => (
               <span key={i} className={`pill${i < game.alarms ? ' filled-red' : ''}`} />
             ))}
           </div>

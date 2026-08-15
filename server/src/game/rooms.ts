@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BONUS_MALUS_CARDS, MAX_PLAYERS, getCardById } from '@thegang/shared';
+import { BONUS_MALUS_CARDS, MAX_PLAYERS, getCardById, type CardMode } from '@thegang/shared';
 import { GameError } from './errors';
 import { shuffle } from './random';
 import type { InternalPlayer, RoomInternal } from './roomTypes';
@@ -35,11 +35,13 @@ export function createRoom(name: string, colorTag: string): { room: RoomInternal
   const room: RoomInternal = {
     code: generateRoomCode(),
     status: 'lobby',
-    settings: { enabledCardIds: [] },
+    settings: { enabledCardIds: [], mode: 'avance' },
     players: [player],
     game: null,
     finalResult: null,
     cardPools: { malusQueue: [], bonusQueue: [] },
+    proPermanentCard: null,
+    gangsterSlots: [],
     createdAt: Date.now(),
     lastActivityAt: Date.now(),
   };
@@ -115,6 +117,12 @@ export function toggleCard(room: RoomInternal, hostId: string, cardId: string, e
   if (enabled) set.add(cardId);
   else set.delete(cardId);
   room.settings.enabledCardIds = Array.from(set);
+}
+
+export function setMode(room: RoomInternal, hostId: string, mode: CardMode): void {
+  requireHost(room, hostId);
+  if (room.status !== 'lobby') throw new GameError('INVALID_STATE', 'Les réglages sont verrouillés une fois la partie lancée.');
+  room.settings.mode = mode;
 }
 
 /** Replaces the enabled cards of one kind with a random pick of `count` of them,

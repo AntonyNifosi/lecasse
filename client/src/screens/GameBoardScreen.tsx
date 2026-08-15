@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ALARMS_TO_LOSE, getCardById, VAULTS_TO_WIN, type RoundColor } from '@thegang/shared';
+import { getCardById, VAULTS_TO_WIN, type RoundColor } from '@thegang/shared';
 import { releaseToken, takeToken } from '../actions';
 import { Avatar } from '../components/Avatar';
 import { HandRankingModal } from '../components/HandRankingModal';
@@ -17,7 +17,7 @@ export function GameBoardScreen() {
 
   const roundColor = game.currentRound as RoundColor;
   const rs = game.tokensByRound[roundColor];
-  const activeCard = game.activeCard ? getCardById(game.activeCard.cardId) : undefined;
+  const activeCards = game.activeCards.map((ac) => getCardById(ac.cardId)).filter((c): c is NonNullable<typeof c> => !!c);
   const currentIdx = ROUND_SEQUENCE.indexOf(roundColor);
 
   return (
@@ -44,22 +44,22 @@ export function GameBoardScreen() {
         <div className="row">
           <span className="muted">Alarmes</span>
           <div className="pill-progress">
-            {Array.from({ length: ALARMS_TO_LOSE }, (_, i) => (
+            {Array.from({ length: game.alarmsToLose }, (_, i) => (
               <span key={i} className={`pill${i < game.alarms ? ' filled-red' : ''}`} />
             ))}
           </div>
         </div>
       </div>
 
-      {activeCard && (
-        <div className={`round-banner ${activeCard.kind}`}>
-          <span className="badge">{activeCard.kind === 'malus' ? 'Malus' : 'Bonus'}</span>
+      {activeCards.map((card) => (
+        <div key={card.id} className={`round-banner ${card.kind}`}>
+          <span className="badge">{card.kind === 'malus' ? 'Malus' : 'Bonus'}</span>
           <div>
-            <div style={{ fontWeight: 700 }}>{activeCard.name}</div>
-            <div className="muted">{activeCard.description}</div>
+            <div style={{ fontWeight: 700 }}>{card.name}</div>
+            <div className="muted">{card.description}</div>
           </div>
         </div>
-      )}
+      ))}
 
       {game.wildAdvantagePlayerId && (
         <p className="muted center">

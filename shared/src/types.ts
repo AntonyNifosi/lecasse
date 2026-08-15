@@ -59,16 +59,24 @@ export interface ShowdownEntry {
   orderOk: boolean;
 }
 
+export interface GuessGate {
+  guessType: 'category' | 'rank';
+  targetPlayerId: string;
+  resolved: boolean;
+  correct: boolean | null;
+  // The group's final answer once every eligible voter has voted (majority, random
+  // tie-break). Individual votes are never broadcast, to avoid groupthink — only the
+  // resolved outcome is public.
+  finalGuess: HandCategory | Rank | null;
+}
+
 export interface ShowdownState {
   order: string[]; // playerIds, weakest red token to strongest
   revealed: ShowdownEntry[];
   failed: boolean;
-  guessGate: null | {
-    guessType: 'category' | 'rank';
-    targetPlayerId: string;
-    resolved: boolean;
-    correct: boolean | null;
-  };
+  // At most one gate per guessType (our pack has one category-guess and one rank-guess
+  // card) — both can be pending at once in Gangster mode, where 2 malus cards run together.
+  guessGates: GuessGate[];
 }
 
 export interface ActiveCardState {
@@ -79,7 +87,7 @@ export interface ActiveCardState {
 export interface HeistRecord {
   heistNumber: number;
   outcome: 'success' | 'fail';
-  activeCardId: string | null;
+  activeCardIds: string[];
 }
 
 export interface GameState {
@@ -89,9 +97,10 @@ export interface GameState {
   tokensByRound: Record<RoundColor, RoundTokens>;
   vaults: number;
   alarms: number;
+  alarmsToLose: number; // 3 normally, 2 in Gangster mode — fixed for the whole match
   history: HeistRecord[];
-  activeCard: ActiveCardState | null;
-  holeCardsPerPlayer: number; // 2 normally, 3 with the "Renfort" bonus card
+  activeCards: ActiveCardState[]; // 0-2: empty on heist 1 (unless Pro/Gangster), usually 1, up to 2 in Gangster mode
+  holeCardsPerPlayer: number; // 2 normally, more with "Renfort"-like cards stacked
   wildAdvantagePlayerId: string | null;
   publicInfoReveal: Record<string, string> | null; // playerId -> short display value
   showdown: ShowdownState | null;
@@ -110,8 +119,15 @@ export interface PlayerPrivate {
   holeCards: Card[];
 }
 
+// avance: the base bonus/malus mode — one card at a time, drawn after each heist's outcome.
+// pro: one malus card drawn at random is active permanently from heist 1, on top of the avance rotation.
+// gangster: always exactly 2 malus cards active (no bonus cards at all), from heist 1, one
+// swapped out per heist; losing threshold drops from 3 alarms to 2.
+export type CardMode = 'avance' | 'pro' | 'gangster';
+
 export interface RoomSettings {
   enabledCardIds: string[];
+  mode: CardMode;
 }
 
 export type RoomStatus = 'lobby' | 'playing' | 'ended';

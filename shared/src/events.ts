@@ -1,4 +1,4 @@
-import type { Card, ErrorCode, HandCategory, Rank, RoomPublicState, PlayerPrivate } from './types';
+import type { Card, CardMode, ErrorCode, HandCategory, Rank, RoomPublicState, PlayerPrivate } from './types';
 
 export interface AckOk {
   ok: true;
@@ -30,6 +30,7 @@ export interface ClientToServerEvents {
   'room:kick': (payload: { playerId: string }) => void;
   'settings:toggleCard': (payload: { cardId: string; enabled: boolean }) => void;
   'settings:randomizeCards': (payload: { kind: 'bonus' | 'malus'; count: number }) => void;
+  'settings:setMode': (payload: { mode: CardMode }) => void;
   'game:start': () => void;
   'token:take': (payload: { stars: number }) => void;
   'token:release': () => void;

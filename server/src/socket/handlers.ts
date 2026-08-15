@@ -154,6 +154,17 @@ export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
     }
   });
 
+  socket.on('settings:setMode', ({ mode }) => {
+    const room = currentRoom(socket);
+    if (!room || !socket.data.playerId) return;
+    try {
+      rooms.setMode(room, socket.data.playerId, mode);
+      broadcastRoom(io, room);
+    } catch (err) {
+      sendError(socket, err);
+    }
+  });
+
   socket.on('game:start', () => {
     const room = currentRoom(socket);
     if (!room || !socket.data.playerId) return;
