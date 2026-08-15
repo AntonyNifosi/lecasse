@@ -52,6 +52,15 @@ export function ShowdownScreen({ onContinue }: Props) {
       <h2>L'abattage</h2>
       <p className="muted">Du jeton le moins étoilé au plus étoilé. Une main plus faible que la précédente fait échouer le braquage.</p>
 
+      <div className="stack center">
+        <span className="muted">Cartes communes</span>
+        <div className="card-row">
+          {game.communityCards.map((c, i) => (
+            <PlayingCard key={i} card={c} />
+          ))}
+        </div>
+      </div>
+
       <div className="stack">
         {sd.order.map((playerId, i) => {
           const player = room.players.find((p) => p.id === playerId);
