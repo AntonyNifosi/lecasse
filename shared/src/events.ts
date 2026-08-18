@@ -32,6 +32,8 @@ export interface ClientToServerEvents {
   'game:start': () => void;
   'token:take': (payload: { stars: number }) => void;
   'token:release': () => void;
+  // Where I'm leaning, broadcast to everyone but not final; 'card:submitGuess' locks it in.
+  'card:previewGuess': (payload: { guessCategory?: HandCategory; guessRank?: Rank }) => void;
   'card:submitGuess': (payload: { guessCategory?: HandCategory; guessRank?: Rank }) => void;
   'showdown:revealNext': () => void;
   'game:nextHeist': () => void;

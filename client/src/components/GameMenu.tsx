@@ -3,12 +3,12 @@ import { leaveRoom } from '../actions';
 import { clearSession } from '../session';
 import { useGameDispatch, useGameState } from '../state/GameContext';
 import { Avatar } from './Avatar';
+import { CopyCodeButton } from './CopyCodeButton';
 
 export function GameMenu() {
   const { room, myPlayerId } = useGameState();
   const dispatch = useGameDispatch();
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
 
   if (!room) return null;
@@ -16,16 +16,6 @@ export function GameMenu() {
   const handleClose = () => {
     setOpen(false);
     setConfirmingLeave(false);
-  };
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(room.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard API unavailable or denied — fail silently.
-    }
   };
 
   const handleLeave = () => {
@@ -53,9 +43,7 @@ export function GameMenu() {
             <div className="card center stack" style={{ marginTop: '0.75rem' }}>
               <p className="muted">Code de la salle</p>
               <div className="input-code">{room.code}</div>
-              <button type="button" className="btn btn-secondary" style={{ alignSelf: 'center' }} onClick={() => void handleCopy()}>
-                {copied ? 'Copié !' : 'Copier'}
-              </button>
+              <CopyCodeButton code={room.code} />
               <p className="muted center" style={{ fontSize: '0.85rem' }}>
                 Un ami pourra rejoindre avec ce code entre deux parties (pas en plein braquage).
               </p>

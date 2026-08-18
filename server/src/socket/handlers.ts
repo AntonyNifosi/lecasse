@@ -186,6 +186,17 @@ export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
     }
   });
 
+  socket.on('card:previewGuess', ({ guessCategory, guessRank }) => {
+    const room = currentRoom(socket);
+    if (!room || !socket.data.playerId) return;
+    try {
+      engine.previewGuess(room, socket.data.playerId, guessCategory, guessRank);
+      broadcastRoom(io, room);
+    } catch (err) {
+      sendError(socket, err);
+    }
+  });
+
   socket.on('card:submitGuess', ({ guessCategory, guessRank }) => {
     const room = currentRoom(socket);
     if (!room || !socket.data.playerId) return;

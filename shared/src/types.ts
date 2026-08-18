@@ -81,10 +81,14 @@ export interface GuessGate {
   // The group's final answer once every eligible voter has voted (majority, random
   // tie-break).
   finalGuess: HandCategory | Rank | null;
-  // Each voter's own answer, playerId -> vote, shown live on their seat: around a real
-  // table the group talks this through out loud, so hiding who thinks what only made the
-  // wait opaque. Never includes the player being guessed about — they don't vote.
+  // Each voter's locked-in answer, playerId -> vote. Only these count toward the majority.
+  // Never includes the player being guessed about — they don't vote.
   votes: Record<string, HandCategory | Rank>;
+  // Where each voter is currently leaning, playerId -> pick, before (or as) they lock it in.
+  // Shown live to everyone: around a real table the group talks this through out loud, so
+  // hiding who thinks what only made the wait opaque. A locked vote also lands here, so this
+  // is always the complete "who is on which answer" picture.
+  picks: Record<string, HandCategory | Rank>;
 }
 
 export interface ShowdownState {
@@ -171,5 +175,6 @@ export type ErrorCode =
   | 'REJOIN_FAILED'
   | 'GUESS_PENDING'
   | 'GUESS_NOT_ALLOWED'
+  | 'GUESS_ALREADY_LOCKED'
   | 'NOT_YOUR_TURN'
   | 'EMOTE_RATE_LIMITED';

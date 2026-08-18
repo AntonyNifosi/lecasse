@@ -25,11 +25,14 @@ export function MySeat({ player, holeCards, badge, token, extra, hyperactive, hi
 
   return (
     <div className={classes} data-seat-player={player.id}>
-      <span
-        key={`avatar-${flashSeq ?? 'idle'}`}
-        className={`avatar-wrap${flashSeq !== undefined ? ' seat-pip-flash-lost' : ''}`}
-      >
-        <Avatar name={player.name} color={player.colorTag} />
+      {/* Only the avatar is re-keyed, not the wrapper — see the same note in Seat. */}
+      <span className="avatar-wrap">
+        <span
+          key={`avatar-${flashSeq ?? 'idle'}`}
+          className={`avatar-shake${flashSeq !== undefined ? ' seat-pip-flash-lost' : ''}`}
+        >
+          <Avatar name={player.name} color={player.colorTag} />
+        </span>
         {emote}
       </span>
       <div className="my-seat-info">

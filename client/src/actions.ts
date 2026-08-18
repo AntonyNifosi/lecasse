@@ -44,6 +44,11 @@ export function releaseToken(): void {
   socket.emit('token:release');
 }
 
+/** Where I'm leaning — everyone sees it, nothing is committed. */
+export function previewGuess(payload: { guessCategory?: HandCategory; guessRank?: Rank }): void {
+  socket.emit('card:previewGuess', payload);
+}
+
 export function submitGuess(payload: { guessCategory?: HandCategory; guessRank?: Rank }): void {
   socket.emit('card:submitGuess', payload);
 }

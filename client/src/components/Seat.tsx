@@ -45,11 +45,16 @@ export function Seat({ player, holeCards, revealed, badge, token, extra, hyperac
          * read yet. Once revealed, that same treatment (tiny, rotated, behind the avatar and
          * name plate) would make the actual cards unreadable, so they move below instead. */}
         {!revealed && <div className="table-seat-cards">{holeCards}</div>}
-        <span
-          key={`avatar-${flashSeq ?? 'idle'}`}
-          className={`avatar-wrap${flashSeq !== undefined ? ' seat-pip-flash-lost' : ''}`}
-        >
-          <Avatar name={player.name} color={player.colorTag} />
+        {/* The re-keyed node is the avatar alone, never the wrapper: re-keying restarts the
+         * shake, and anything else inside would get its own animation restarted along with
+         * it — which is how a spent reaction used to pop back up on every steal. */}
+        <span className="avatar-wrap">
+          <span
+            key={`avatar-${flashSeq ?? 'idle'}`}
+            className={`avatar-shake${flashSeq !== undefined ? ' seat-pip-flash-lost' : ''}`}
+          >
+            <Avatar name={player.name} color={player.colorTag} />
+          </span>
           {emote}
         </span>
         {token}

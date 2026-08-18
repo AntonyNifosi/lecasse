@@ -18,11 +18,17 @@ export interface GameState {
   myHoleCards: Card[];
   lastError: { code: string; message: string } | null;
   notifications: Notification[];
-  // playerId -> their latest reaction. Never cleared on a timer — seq changing re-keys the
-  // bubble that renders it (see Table/Seat), which restarts and then holds its own CSS
-  // fade-out, the same trick already used for the token-steal shake.
+  // playerId -> their reaction, only for as long as it's actually playing (see
+  // EMOTE_DISPLAY_MS). Leaving a spent reaction parked here used to make it replay at random
+  // later in the game: its bubble sits inside a seat subtree React re-creates on unrelated
+  // events (a token steal re-keys the avatar), and re-creating the node restarts its CSS
+  // animation. Dropping it once it has played means there is nothing left to replay.
   emotes: Record<string, { emoteId: EmoteId; seq: number }>;
 }
+
+/** Kept in sync with .seat-emote's animation in global.css — a little longer, so state
+ * outlives the pixels rather than the bubble vanishing mid-fade. */
+const EMOTE_DISPLAY_MS = 2600;
 
 type Action =
   | { type: 'CONNECTED' }
@@ -35,6 +41,7 @@ type Action =
   | { type: 'ERROR'; code: string; message: string }
   | { type: 'CLEAR_ERROR' }
   | { type: 'EMOTE_RECEIVED'; playerId: string; emoteId: EmoteId; seq: number }
+  | { type: 'EMOTE_EXPIRED'; playerId: string; seq: number }
   | { type: 'LEFT_ROOM' };
 
 const initialState: GameState = {
@@ -69,6 +76,13 @@ function reducer(state: GameState, action: Action): GameState {
       return { ...state, lastError: null };
     case 'EMOTE_RECEIVED':
       return { ...state, emotes: { ...state.emotes, [action.playerId]: { emoteId: action.emoteId, seq: action.seq } } };
+    case 'EMOTE_EXPIRED': {
+      // Only retire the exact reaction that timed out: a newer one from the same player has
+      // its own timer and must not be cut short by the older one's.
+      if (state.emotes[action.playerId]?.seq !== action.seq) return state;
+      const { [action.playerId]: _expired, ...rest } = state.emotes;
+      return { ...state, emotes: rest };
+    }
     case 'LEFT_ROOM':
       return { ...initialState, connection: state.connection };
     default:
@@ -118,8 +132,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const onInfo = (data: { message: string; card?: Card }) =>
       dispatch({ type: 'NOTIFY', notification: { id: crypto.randomUUID(), message: data.message, card: data.card } });
     const onError = (data: { code: string; message: string }) => dispatch({ type: 'ERROR', code: data.code, message: data.message });
-    const onEmote = (data: { playerId: string; emoteId: EmoteId; seq: number }) =>
+    const emoteTimers = new Set<ReturnType<typeof setTimeout>>();
+    const onEmote = (data: { playerId: string; emoteId: EmoteId; seq: number }) => {
       dispatch({ type: 'EMOTE_RECEIVED', playerId: data.playerId, emoteId: data.emoteId, seq: data.seq });
+      const timer = setTimeout(() => {
+        emoteTimers.delete(timer);
+        dispatch({ type: 'EMOTE_EXPIRED', playerId: data.playerId, seq: data.seq });
+      }, EMOTE_DISPLAY_MS);
+      emoteTimers.add(timer);
+    };
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
@@ -139,6 +160,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       socket.off('card:privateInfo', onInfo);
       socket.off('error', onError);
       socket.off('player:emoteReceived', onEmote);
+      for (const timer of emoteTimers) clearTimeout(timer);
     };
   }, []);
 

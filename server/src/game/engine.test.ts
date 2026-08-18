@@ -46,6 +46,7 @@ function fastForwardToRedRound(room: RoomInternal, playerIds: string[]): void {
 const WEAK_HAND = [card(4, 'H'), card(5, 'D')]; // pair of 2s, kickers Q-9-5
 const WEAK_HAND_TIED = [card(4, 'D'), card(5, 'S')]; // different cards, same resulting best five as WEAK_HAND
 const MID_HAND = [card(4, 'S'), card(6, 'D')]; // pair of 2s, kickers Q-9-6 (beats WEAK)
+const MID_HAND_2 = [card(7, 'S'), card(8, 'D')]; // pair of 2s, kickers Q-9-8 (beats MID)
 const STRONG_HAND = [card(13, 'S'), card(13, 'D')]; // two pair (K's and 2's)
 const COMMUNITY = [card(2, 'S'), card(2, 'H'), card(9, 'D'), card(12, 'C'), card(3, 'S')];
 
@@ -355,6 +356,91 @@ describe('engine — bonus/malus cards', () => {
 
     expect(room.game!.showdown!.guessGates[0].finalGuess).toBe('twoPair');
     expect(room.game!.showdown!.guessGates[0].correct).toBe(true); // 'twoPair' happens to be carol's real hand
+  });
+
+  it('follows the majority on a 2-against-1 split, whichever order the votes land in', () => {
+    // The three-player tests above can only ever produce a 2-0 or a 1-1, so this covers the
+    // one shape they can't: a real majority with a dissenter, votes arriving minority-first.
+    const dave = rooms.joinRoom(room, 'Dave', '#ff0').id;
+    engine.startGame(room, alice);
+    room.cardPools.malusQueue = ['alarme-silencieuse'];
+    const seats = [alice, bob, dave, carol]; // weakest hand to strongest
+    const handBySeat: Record<string, Card[]> = {
+      [alice]: WEAK_HAND,
+      [bob]: MID_HAND,
+      [dave]: MID_HAND_2,
+      [carol]: STRONG_HAND,
+    };
+    const hands = room.players.map((p) => handBySeat[p.id]); // forceDeal follows join order, not seat order
+    forceDeal(room, hands, COMMUNITY);
+    fastForwardToRedRound(room, seats);
+    claimRound(
+      room,
+      seats.map((playerId, i) => ({ playerId, stars: i + 1 })),
+    );
+    for (const id of seats) engine.revealNext(room, id);
+    expect(room.game!.vaults).toBe(1);
+
+    engine.nextHeist(room);
+    expect(room.game!.activeCards.map((c) => c.cardId)).toEqual(['alarme-silencieuse']);
+    forceDeal(room, hands, COMMUNITY);
+    fastForwardToRedRound(room, seats);
+    claimRound(
+      room,
+      seats.map((playerId, i) => ({ playerId, stars: i + 1 })),
+    );
+    engine.revealNext(room, alice);
+    engine.revealNext(room, bob);
+    engine.revealNext(room, dave); // carol, the top red token, is the guess target
+
+    engine.submitGuess(room, dave, 'twoPair'); // the lone correct vote, cast first
+    engine.submitGuess(room, alice, 'trips');
+    engine.submitGuess(room, bob, 'trips'); // 2-1 for the wrong answer -> it must win
+
+    const gate = room.game!.showdown!.guessGates[0];
+    expect(gate.votes).toEqual({ [dave]: 'twoPair', [alice]: 'trips', [bob]: 'trips' });
+    expect(gate.finalGuess).toBe('trips');
+    expect(gate.correct).toBe(false);
+
+    engine.revealNext(room, carol);
+    expect(room.game!.showdown!.revealed.every((r) => r.orderOk)).toBe(true); // token order was fine
+    expect(room.game!.showdown!.failed).toBe(true); // the majority was wrong, so the heist fails
+    expect(room.game!.alarms).toBe(1);
+    expect(room.game!.vaults).toBe(1); // still just the first heist's vault
+  });
+
+  it('broadcasts a tentative pick without counting it, until it is validated', () => {
+    winFirstHeist('alarme-silencieuse');
+    engine.nextHeist(room);
+    forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], COMMUNITY);
+    fastForwardToRedRound(room, [alice, bob, carol]);
+    claimRound(room, [
+      { playerId: alice, stars: 1 },
+      { playerId: bob, stars: 2 },
+      { playerId: carol, stars: 3 },
+    ]);
+    engine.revealNext(room, alice);
+    engine.revealNext(room, bob);
+
+    const gate = () => room.game!.showdown!.guessGates[0];
+    engine.previewGuess(room, alice, 'trips');
+    engine.previewGuess(room, bob, 'trips');
+    expect(gate().picks).toEqual({ [alice]: 'trips', [bob]: 'trips' });
+    expect(gate().votes).toEqual({});
+    expect(gate().resolved).toBe(false); // both are leaning the same way, nothing is locked yet
+
+    engine.previewGuess(room, alice, 'twoPair'); // free to move around
+    expect(gate().picks[alice]).toBe('twoPair');
+
+    engine.submitGuess(room, alice, 'twoPair');
+    expect(gate().votes).toEqual({ [alice]: 'twoPair' });
+    expect(() => engine.previewGuess(room, alice, 'trips')).toThrow(GameError); // locked in
+    expect(() => engine.submitGuess(room, alice, 'trips')).toThrow(GameError);
+    expect(gate().resolved).toBe(false); // still waiting on bob
+
+    engine.submitGuess(room, bob, 'twoPair');
+    expect(gate().resolved).toBe(true);
+    expect(gate().finalGuess).toBe('twoPair');
   });
 
   it('rejects a guess submitted by the target themselves', () => {

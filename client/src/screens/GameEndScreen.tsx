@@ -1,13 +1,12 @@
-import { useState } from 'react';
 import { leaveRoom, rematch } from '../actions';
 import { clearSession } from '../session';
 import { useGameDispatch, useGameState } from '../state/GameContext';
 import { Avatar } from '../components/Avatar';
+import { CopyCodeButton } from '../components/CopyCodeButton';
 
 export function GameEndScreen() {
   const { room } = useGameState();
   const dispatch = useGameDispatch();
-  const [copied, setCopied] = useState(false);
   if (!room || !room.game) return null;
 
   const won = room.finalResult === 'win';
@@ -17,16 +16,6 @@ export function GameEndScreen() {
     clearSession();
     dispatch({ type: 'LEFT_ROOM' });
   }
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(room.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard API unavailable or denied — fail silently.
-    }
-  };
 
   return (
     <div className="screen screen-centered">
@@ -49,9 +38,7 @@ export function GameEndScreen() {
       <div className="card center stack" style={{ width: '100%' }}>
         <p className="muted">Envie de rajouter quelqu'un avant la prochaine partie ?</p>
         <div className="input-code">{room.code}</div>
-        <button type="button" className="btn btn-secondary" style={{ alignSelf: 'center' }} onClick={() => void handleCopy()}>
-          {copied ? 'Copié !' : 'Copier le code'}
-        </button>
+        <CopyCodeButton code={room.code} label="Copier le code" />
       </div>
 
       <div className="stack" style={{ width: '100%' }}>

@@ -376,6 +376,12 @@ p {
   transform: scale(1.06);
 }
 
+/* Same chip, nothing to click — the showdown shows which token each player ended up with,
+   but the round is over and none of them can change hands anymore. */
+.token-static {
+  cursor: default;
+}
+
 .token-row {
   display: flex;
   gap: calc(var(--tsz, 1rem) * 0.75);
@@ -577,10 +583,57 @@ p {
   cursor: default;
 }
 
+/* Sat on the chip's top-right corner, big enough to read at a glance across the table: a
+   locked token is a rule you have to notice *before* tapping it, not after. */
 .token-lock {
   position: absolute;
-  font-size: 0.7rem;
-  transform: translate(0.9rem, -0.9rem);
+  top: calc(var(--tsz, 1rem) * -0.55);
+  right: calc(var(--tsz, 1rem) * -0.55);
+  font-size: calc(var(--tsz, 1rem) * 1.1);
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+}
+
+/* A token's value as stars rather than a digit, like the markings on the physical chips.
+   Each star takes 1/--cols of the row so the wrap lands exactly where TokenStars intends,
+   and the leftovers on the last row stay centered. Sizes are in em — deliberately relative
+   to whatever chip is hosting them, since the same component renders in the big pot chip,
+   the small one pinned to a seat and the flying ghost, all at different scales. */
+.token-stars {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: center;
+  width: 82%;
+  height: 82%;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+}
+
+.token-stars > span {
+  flex: 0 0 calc(100% / var(--cols, 3));
+  text-align: center;
+}
+
+.token-stars[data-count='1'] {
+  font-size: 1.05em;
+}
+
+.token-stars[data-count='2'] {
+  font-size: 0.82em;
+}
+
+.token-stars[data-count='3'] {
+  font-size: 0.6em;
+}
+
+.token-stars[data-count='4'] {
+  font-size: 0.72em;
+}
+
+.token-stars[data-count='5'],
+.token-stars[data-count='6'] {
+  font-size: 0.52em;
 }
 
 .history-pip {
@@ -897,14 +950,17 @@ p {
   --center-w: 50%;
 }
 
-/* Felt + rail: a true ellipse (border-radius: 50%) filling the arena, in a dark green bed
-   of hand-picked shades near the app's existing --green accent, ringed by a warm wood rail
+/* Felt + rail: a racetrack/hippodrome — semicircular caps joined by straight sides, which is
+   the shape a real table is actually built in, rather than the pure ellipse this used to be.
+   A radius of half the *width* is what makes the caps exact semicircles; anything past that
+   is clamped by the browser, so the huge value here just means "as round as the caps go".
+   Dark green bed in shades near the app's existing --green accent, ringed by a warm wood rail
    with a thin gold hairline inside it. Purely decorative — the seats and center content are
    its siblings, positioned over it, so nothing can ever be clipped by its curve. */
 .table-felt {
   position: absolute;
   inset: calc(var(--tsz, 1rem) * 1.5) calc(var(--tsz, 1rem) * 1.8);
-  border-radius: 50%;
+  border-radius: 9999px;
   background: radial-gradient(ellipse at 50% 40%, #2f5c3a 0%, #1f4029 62%, #14301d 100%);
   border: calc(var(--tsz, 1rem) * 0.42) solid #3e2a19;
   box-shadow:
@@ -1110,6 +1166,12 @@ p {
   display: inline-flex;
 }
 
+/* The only thing re-keyed when a token gets stolen, so restarting the shake can't restart
+   anything else living in the same seat (see Seat.tsx). */
+.avatar-shake {
+  display: inline-flex;
+}
+
 .seat-emote {
   position: absolute;
   bottom: 100%;
@@ -1122,9 +1184,9 @@ p {
   animation: emotePop 2.4s ease forwards;
 }
 
-/* Pops up with a little overshoot, holds, then drifts up and fades — held state (not
-   cleared from React state on a timer, see GameContext) is invisible, so it's harmless to
-   leave sitting there until the next reaction re-keys and restarts this. */
+/* Pops up with a little overshoot, holds, then drifts up and fades. The reaction is dropped
+   from React state right after this finishes (EMOTE_DISPLAY_MS in GameContext) so there's
+   nothing left that a later re-render could bring back to life. */
 @keyframes emotePop {
   0% {
     opacity: 0;
@@ -1392,4 +1454,111 @@ p {
 .emote-choice-label {
   font-size: 0.7rem;
   color: var(--fg-muted);
+}
+
+/* Group guess panel (malus "devine sa main") */
+
+/* Lighter scrim than a normal sheet: the table underneath stays readable, since the seats
+   are showing the same votes live and glancing at them is half the point. */
+.guess-vote-backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.guess-vote-sheet {
+  max-height: 78dvh;
+}
+
+.guess-options {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.9rem 0 1rem;
+}
+
+.guess-options[data-kind='category'] {
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+}
+
+.guess-options[data-kind='rank'] {
+  grid-template-columns: repeat(auto-fill, minmax(4.2rem, 1fr));
+}
+
+.guess-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.3rem;
+  min-height: 3.4rem;
+  padding: 0.5rem 0.4rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--fg);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.guess-option.selected {
+  border-color: var(--gold);
+  background: rgba(224, 168, 62, 0.16);
+}
+
+.guess-option:active {
+  transform: scale(0.97);
+}
+
+.guess-option-label {
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.guess-option-backers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.15rem;
+  min-height: 1.1rem;
+}
+
+.guess-backer .avatar {
+  width: 1.15rem;
+  height: 1.15rem;
+  font-size: 0.6rem;
+  opacity: 0.75;
+}
+
+/* Ringed once that player has actually validated — still leaning vs. committed. */
+.guess-backer.locked .avatar {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--gold);
+}
+
+/* The folded-down panel: parked just above the footer so the table is fully visible, and
+   never dismissed outright — the guess is blocking everyone until it's answered. */
+.guess-vote-pill {
+  position: fixed;
+  left: 50%;
+  bottom: calc(0.75rem + var(--safe-bottom));
+  transform: translateX(-50%);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: min(92vw, 30rem);
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--gold);
+  background: var(--surface-raised);
+  color: var(--fg);
+  font-size: 0.85rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.guess-vote-pill-icon {
+  font-size: 1.1rem;
+  line-height: 1;
 }

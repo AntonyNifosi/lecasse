@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { MAX_PLAYERS, MIN_PLAYERS, type CardMode } from '@thegang/shared';
 import { kickPlayer, leaveRoom, setMode, startGame } from '../actions';
 import { Avatar } from '../components/Avatar';
+import { CopyCodeButton } from '../components/CopyCodeButton';
 import { clearSession } from '../session';
 import { useGameDispatch, useGameState } from '../state/GameContext';
 
@@ -26,7 +27,6 @@ const MODES: CardMode[] = ['avance', 'pro', 'gangster'];
 export function LobbyScreen() {
   const { room, myPlayerId } = useGameState();
   const dispatch = useGameDispatch();
-  const [copied, setCopied] = useState(false);
 
   if (!room) return null;
 
@@ -36,15 +36,6 @@ export function LobbyScreen() {
   const tooMany = room.players.length > MAX_PLAYERS;
   const canStart = !tooFew && !tooMany;
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(room.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard API unavailable or denied — fail silently.
-    }
-  };
 
   const handleLeave = () => {
     leaveRoom();
@@ -57,9 +48,7 @@ export function LobbyScreen() {
       <div className="card center stack">
         <p className="muted">Code de la salle</p>
         <div className="input-code">{room.code}</div>
-        <button type="button" className="btn btn-secondary" style={{ alignSelf: 'center' }} onClick={() => void handleCopy()}>
-          {copied ? 'Copié !' : 'Copier'}
-        </button>
+        <CopyCodeButton code={room.code} />
       </div>
 
       <div className="stack">

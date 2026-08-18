@@ -324,6 +324,7 @@ function beginShowdown(room: RoomInternal, game: InternalGameState, cardDefs: Bo
           correct: null,
           finalGuess: null,
           votes: {},
+          picks: {},
         });
       }
     }
@@ -508,8 +509,14 @@ export function refreshGuessGates(room: RoomInternal): void {
   for (const gate of sd.guessGates) tryResolveGate(room, game, sd, gate);
 }
 
-export function submitGuess(room: RoomInternal, playerId: string, guessCategory?: HandCategory, guessRank?: Rank): void {
-  const game = requireGame(room);
+/** The one open guess of the type this payload is answering, plus the answer itself —
+ * shared by the tentative pick and the final vote, which differ only in what they write. */
+function openGateFor(
+  game: InternalGameState,
+  playerId: string,
+  guessCategory?: HandCategory,
+  guessRank?: Rank,
+): { sd: ShowdownState; gate: GuessGate; vote: HandCategory | Rank } {
   const sd = game.showdown;
   if (game.currentRound !== 'showdown' || !sd) {
     throw new GameError('INVALID_STATE', "Aucune devinette n'est attendue actuellement.");
@@ -521,8 +528,26 @@ export function submitGuess(room: RoomInternal, playerId: string, guessCategory?
 
   const vote = guessType === 'category' ? guessCategory : guessRank;
   if (vote === undefined) throw new GameError('INVALID_STATE', 'Devinette invalide.');
+  return { sd, gate, vote };
+}
 
-  // A player may change their mind and vote again right up until the group's answer locks in.
+/** Where a player is leaning, without committing: everyone sees it move around live, and it
+ * never counts toward the majority nor closes the guess. */
+export function previewGuess(room: RoomInternal, playerId: string, guessCategory?: HandCategory, guessRank?: Rank): void {
+  const game = requireGame(room);
+  const { gate, vote } = openGateFor(game, playerId, guessCategory, guessRank);
+  if (gate.votes[playerId] !== undefined) throw new GameError('GUESS_ALREADY_LOCKED', 'Votre réponse est déjà validée.');
+  gate.picks[playerId] = vote;
+}
+
+export function submitGuess(room: RoomInternal, playerId: string, guessCategory?: HandCategory, guessRank?: Rank): void {
+  const game = requireGame(room);
+  const { sd, gate, vote } = openGateFor(game, playerId, guessCategory, guessRank);
+  // Validating is deliberately one-way: the rest of the group is waiting on this answer and
+  // the guess closes the instant the last one lands, so "I locked it, then changed it" would
+  // be a race nobody could see coming.
+  if (gate.votes[playerId] !== undefined) throw new GameError('GUESS_ALREADY_LOCKED', 'Votre réponse est déjà validée.');
+  gate.picks[playerId] = vote;
   gate.votes[playerId] = vote;
   tryResolveGate(room, game, sd, gate);
 }

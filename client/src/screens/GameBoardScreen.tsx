@@ -7,6 +7,7 @@ import { GameMenu } from '../components/GameMenu';
 import { HandRankingModal } from '../components/HandRankingModal';
 import { PlayingCard } from '../components/PlayingCard';
 import { Table } from '../components/Table';
+import { TokenStars } from '../components/TokenStars';
 import { useTokenEvents } from '../hooks/useTokenEvents';
 import { useTokenFlights } from '../hooks/useTokenFlights';
 import { useGameState } from '../state/GameContext';
@@ -158,7 +159,7 @@ export function GameBoardScreen() {
               disabled={isLocked || landing}
               onClick={() => (isMine ? releaseToken() : takeToken(myCurrentStar))}
             >
-              {myCurrentStar}
+              <TokenStars count={myCurrentStar} />
               {isLocked && <span className="token-lock">🔒</span>}
             </button>
           );
@@ -184,7 +185,7 @@ export function GameBoardScreen() {
                     return (
                       <div key={star} className="token-slot" data-star={star}>
                         <div className="token token-empty-slot" aria-hidden="true">
-                          {star}
+                          <TokenStars count={star} />
                         </div>
                       </div>
                     );
@@ -199,7 +200,7 @@ export function GameBoardScreen() {
                         style={{ background: ROUND_TOKEN_COLOR[roundColor], borderColor: 'transparent', position: 'relative' }}
                         onClick={() => takeToken(star)}
                       >
-                        {star}
+                        <TokenStars count={star} />
                       </button>
                     </div>
                   );
@@ -224,6 +225,11 @@ export function GameBoardScreen() {
           style={{
             left: f.left,
             top: f.top,
+            width: f.size,
+            height: f.size,
+            // Same star-to-chip proportion the real tokens use, at whatever size this ghost
+            // was measured to be.
+            fontSize: Math.round(f.size * 0.34),
             background: f.color,
             borderColor: f.ringColor,
             animationDuration: `${f.durationMs}ms`,
@@ -234,7 +240,7 @@ export function GameBoardScreen() {
             '--spin': `${f.spin}deg`,
           }}
         >
-          {f.label}
+          <TokenStars count={f.star} />
         </div>
       ))}
 
