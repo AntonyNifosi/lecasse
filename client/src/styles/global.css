@@ -1339,13 +1339,17 @@ p {
   }
   /* A short hop rather than a straight slide: bows up and out by --arc at the midpoint
      (real screen "up" is negative Y), grows slightly as if lifting off the felt, and tilts
-     toward the direction of travel (--spin) — settling flat again on arrival. */
+     toward the direction of travel (--spin) — settling flat again on arrival. The 1.18 is
+     that lift; it rides on top of the ghost's own progress from the size of the chip it left
+     to the size of the one it lands on (--land-scale), so a chip crossing between the pot
+     and a seat never has to jump size on arrival. */
   50% {
-    transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.5 - var(--arc, 20px))) scale(1.18) rotate(var(--spin, 8deg));
+    transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.5 - var(--arc, 20px)))
+      scale(calc((1 + var(--land-scale, 1)) / 2 * 1.18)) rotate(var(--spin, 8deg));
     animation-timing-function: ease-out;
   }
   100% {
-    transform: translate(var(--dx), var(--dy)) scale(1) rotate(0deg);
+    transform: translate(var(--dx), var(--dy)) scale(var(--land-scale, 1)) rotate(0deg);
   }
 }
 

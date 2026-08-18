@@ -12,9 +12,11 @@ export interface TokenFlight {
   arc: number;
   spin: number;
   durationMs: number;
-  /** Measured off the token it left, so the ghost is the same size as the real thing at both
-   * ends of the trip whatever --tsz currently is. */
+  /** Measured off the chip it left, so the ghost starts out the same size as the real thing
+   * whatever --tsz currently is. */
   size: number;
+  /** What to scale to on arrival, so it also ends the same size as the chip it lands on. */
+  landScale: number;
   color: string;
   ringColor: string;
 }
@@ -33,6 +35,45 @@ function seatEl(playerId: string): Element | null {
 
 function starEl(star: number): Element | null {
   return document.querySelector(`[data-star="${star}"]`);
+}
+
+/** offsetWidth, not the bounding rect, which counts transforms: the chip at the far end of a
+ * trip is usually a frame into its "just claimed" flash, and those keyframes open at
+ * scale(0.6) — enough to hand back a chip 40% smaller than the one it actually is. */
+function chipWidth(chip: Element | null): number | null {
+  return chip instanceof HTMLElement && chip.offsetWidth > 0 ? chip.offsetWidth : null;
+}
+
+/** The last chip size seen on each kind of seat. My own seat only ever holds one chip, so on
+ * the trip that takes it away there is nothing of its kind left on screen to measure — and
+ * that trip is precisely the one that needs the answer. Refreshed on every batch, so it
+ * follows --tsz across a resize within a move or two. */
+const rememberedChipSize = { mine: 0, opponent: 0 };
+
+function rememberChipSizes(): void {
+  rememberedChipSize.mine = chipWidth(document.querySelector('.my-seat .token')) ?? rememberedChipSize.mine;
+  rememberedChipSize.opponent = chipWidth(document.querySelector('.table-seat .token')) ?? rememberedChipSize.opponent;
+}
+
+/** How big a chip on this player's seat is, for the one case chipIn can't answer: the seat a
+ * token was just taken from has no chip left to measure. Any other seat of the same kind will
+ * do — my own seat renders its chip larger than the others, so the two aren't interchangeable. */
+function seatChipSize(playerId: string): number | null {
+  const seat = document.querySelector(`[data-seat-player="${playerId}"]`);
+  if (!seat) return null;
+  const mine = seat.classList.contains('my-seat');
+  return chipWidth(document.querySelector(mine ? '.my-seat .token' : '.table-seat .token')) ?? (rememberedChipSize[mine ? 'mine' : 'opponent'] || null);
+}
+
+/** The chip at one end of a trip, as opposed to whatever is holding it.
+ *
+ * The two functions above answer "where", and either can legitimately return something that
+ * is not itself a chip: a pot slot, or — for the player a token was just taken from — their
+ * whole seat, since they no longer have a chip in the DOM to point at. Measuring the ghost
+ * against that is how a stolen token ended up flying across the table at the size of a seat. */
+function chipIn(node: Element | null): Element | null {
+  if (!node) return null;
+  return node.classList.contains('token') ? node : node.querySelector('.token');
 }
 
 function center(r: DOMRect): { x: number; y: number } {
@@ -63,15 +104,23 @@ export function useTokenFlights(
   useEffect(() => {
     if (events.length === 0) return;
     const { players, tokenColor } = ctxRef.current;
+    rememberChipSizes();
     const additions: TokenFlight[] = [];
     for (const e of events) {
       const fromNode = e.fromPlayerId ? seatEl(e.fromPlayerId) : starEl(e.star);
       const toNode = e.toPlayerId ? seatEl(e.toPlayerId) : starEl(e.star);
       if (!fromNode || !toNode) continue;
-      const fromRect = fromNode.getBoundingClientRect();
-      const from = center(fromRect);
+      const from = center(fromNode.getBoundingClientRect());
       const to = center(toNode.getBoundingClientRect());
-      const size = Math.round(fromRect.width) || FALLBACK_GHOST_SIZE_PX;
+      // A chip in the pot and a chip on a seat aren't the same size, so the ghost leaves at
+      // the size of the one it left and grows or shrinks into the one it lands on. Either end
+      // can be unmeasurable — the chip a token was just taken from is already out of the DOM —
+      // in which case both ends fall back to whatever the other one measured, and the trip
+      // simply keeps one size throughout.
+      const fromSize = chipWidth(chipIn(fromNode)) ?? (e.fromPlayerId ? seatChipSize(e.fromPlayerId) : null);
+      const toSize = chipWidth(chipIn(toNode)) ?? (e.toPlayerId ? seatChipSize(e.toPlayerId) : null);
+      const size = fromSize ?? toSize ?? chipWidth(document.querySelector('.token')) ?? FALLBACK_GHOST_SIZE_PX;
+      const landScale = (toSize ?? size) / size;
       const dx = to.x - from.x;
       const dy = to.y - from.y;
       const distance = Math.hypot(dx, dy);
@@ -88,6 +137,7 @@ export function useTokenFlights(
         spin: dx >= 0 ? 8 : -8,
         durationMs: Math.min(MAX_FLIGHT_MS, BASE_FLIGHT_MS + distance * 0.35),
         size,
+        landScale,
         color: tokenColor,
         ringColor,
       });

@@ -234,6 +234,7 @@ export function GameBoardScreen() {
             // Same star-to-chip proportion the real chips use, at whatever size this ghost
             // was measured to be.
             '--star': `${(f.size * 0.3).toFixed(1)}px`,
+            '--land-scale': f.landScale.toFixed(3),
             '--dx': `${f.dx}px`,
             '--dy': `${f.dy}px`,
             '--arc': `${f.arc}px`,
