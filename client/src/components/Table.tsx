@@ -4,10 +4,13 @@ import { MySeat } from './MySeat';
 import { Seat } from './Seat';
 
 /** How far around the oval the opponents fan out, indexed by how many there are: one sits
- * dead center at the top, more spread toward the sides. Deliberately capped well short of
- * the bottom arc (which belongs to my own seat) and short of straight-out left/right, so a
- * seat's full width always stays inside the arena instead of hanging off its edge. */
-const SPREAD_DEG = [0, 0, 55, 70, 80, 88];
+ * dead center at the top, more spread toward the sides as there are more of them — past 90°
+ * at 4-5, swinging the outermost seats slightly below the horizontal midline, which is what
+ * it takes to give revealed showdown cards (taller than a face-down peek) enough room
+ * between neighbors without colliding — verified by measurement, not just eyeballed (see
+ * Seat's .table-seat-cards.revealed). Still short of the bottom arc, which belongs to my
+ * own seat. */
+const SPREAD_DEG = [0, 0, 55, 70, 95, 108];
 
 /** Where opponent `index` of `total` sits. Angles run from the top of the oval (0°) outward
  * to either side, then get mapped onto the arena *inset by half a seat* — so a seat's own
@@ -43,6 +46,9 @@ interface TableProps {
   myPlayerId: string | null;
   centerContent: ReactNode;
   renderHoleCards: (player: PlayerPublic, isMe: boolean) => ReactNode;
+  /** True once a player's hand is actually revealed (showdown) — switches their cards from
+   * the small face-down peek tucked behind the avatar to a plain, legible row (see Seat). */
+  cardsRevealed?: (player: PlayerPublic) => boolean;
   renderBadge?: (player: PlayerPublic) => ReactNode;
   renderToken?: (player: PlayerPublic) => ReactNode;
   renderSeatExtra?: (player: PlayerPublic) => ReactNode;
@@ -65,6 +71,7 @@ export function Table({
   myPlayerId,
   centerContent,
   renderHoleCards,
+  cardsRevealed,
   renderBadge,
   renderToken,
   renderSeatExtra,
@@ -83,6 +90,7 @@ export function Table({
           key={player.id}
           player={player}
           holeCards={renderHoleCards(player, false)}
+          revealed={cardsRevealed?.(player) ?? false}
           badge={renderBadge?.(player)}
           token={renderToken?.(player)}
           extra={renderSeatExtra?.(player)}

@@ -104,6 +104,7 @@ export function ShowdownScreen({ onContinue }: Props) {
             </>
           );
         }}
+        cardsRevealed={(player) => sd.revealed.some((r) => r.playerId === player.id)}
         renderBadge={(player) => {
           const order = sd.order.indexOf(player.id);
           return (

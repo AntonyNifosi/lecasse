@@ -5,6 +5,9 @@ import { Avatar } from './Avatar';
 interface SeatProps {
   player: PlayerPublic;
   holeCards: ReactNode;
+  /** True once this hand is actually revealed (showdown) — see the .table-seat-cards note
+   * on Table/global.css for why that changes how the cards are laid out. */
+  revealed?: boolean;
   badge?: ReactNode;
   /** The live, clickable current-round token this player holds, if any — pinned as a chip
    * on the corner of their avatar. */
@@ -23,7 +26,7 @@ interface SeatProps {
  * their two cards tucked behind it and their token pinned to its corner — so that a seat
  * never reaches far enough inward to crowd the community cards in the middle, however many
  * players are around the table. */
-export function Seat({ player, holeCards, badge, token, extra, hyperactive, highlighted, flashSeq, style }: SeatProps) {
+export function Seat({ player, holeCards, revealed, badge, token, extra, hyperactive, highlighted, flashSeq, style }: SeatProps) {
   const classes = [
     'table-seat',
     hyperactive && 'hyperactive',
@@ -36,7 +39,10 @@ export function Seat({ player, holeCards, badge, token, extra, hyperactive, high
   return (
     <div className={classes} data-seat-player={player.id} style={style}>
       <div className="table-seat-figure">
-        <div className="table-seat-cards">{holeCards}</div>
+        {/* Face-down: a small peek tucked behind the avatar — fine since there's nothing to
+         * read yet. Once revealed, that same treatment (tiny, rotated, behind the avatar and
+         * name plate) would make the actual cards unreadable, so they move below instead. */}
+        {!revealed && <div className="table-seat-cards">{holeCards}</div>}
         <span
           key={`avatar-${flashSeq ?? 'idle'}`}
           className={flashSeq !== undefined ? 'seat-pip-flash-lost' : undefined}
@@ -50,6 +56,7 @@ export function Seat({ player, holeCards, badge, token, extra, hyperactive, high
         {player.isHost && <span className="table-seat-host">★</span>}
       </span>
       {badge}
+      {revealed && <div className="table-seat-cards revealed">{holeCards}</div>}
       {extra}
     </div>
   );

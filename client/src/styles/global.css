@@ -864,9 +864,11 @@ p {
      edges, so a seat's box always lands fully inside it. */
   --seat-inset-x: calc(var(--seat-w) / 2);
   /* Half a seat vertically — sized for the tallest a seat gets (avatar, name plate, round
-     pips and, during the showdown, its result line), not just its plainest form, so the
-     guard still holds on the screen where seats carry the most under them. */
-  --seat-inset-y: calc(var(--tsz, 1rem) * 2.9);
+     pips, revealed cards and its result line, all at once during a showdown), not just its
+     plainest face-down form, so the guard still holds on the screen where seats carry the
+     most under them. Paired with SPREAD_DEG above for neighbor-to-neighbor clearance —
+     both were tuned together by measurement, not just this value in isolation. */
+  --seat-inset-y: calc(var(--tsz, 1rem) * 4.3);
 }
 
 .table-arena[data-opponents='3'] {
@@ -1043,7 +1045,7 @@ p {
   display: flex;
 }
 
-.table-seat-cards > * {
+.table-seat-cards:not(.revealed) > * {
   width: calc(var(--tsz, 1rem) * 1.5);
   height: calc(var(--tsz, 1rem) * 2.1);
   font-size: calc(var(--tsz, 1rem) * 0.6);
@@ -1053,12 +1055,32 @@ p {
   box-shadow: 0 0 0 1px rgba(244, 241, 232, 0.35), 0 2px 5px rgba(0, 0, 0, 0.45);
 }
 
-.table-seat-cards > *:first-child {
+.table-seat-cards:not(.revealed) > *:first-child {
   transform: rotate(-14deg) translateX(24%);
 }
 
-.table-seat-cards > *:last-child {
+.table-seat-cards:not(.revealed) > *:last-child {
   transform: rotate(14deg) translateX(-24%);
+}
+
+/* Once actually revealed, the cards are the whole point — drop the tucked-behind peek
+   (position, rotation, hidden behind the avatar/name) for a plain, unrotated row below the
+   name plate. Sized off the seat's own width (--seat-w, already tuned per player count so
+   neighboring seats can't collide) rather than a fixed size: two cards side by side can
+   never exceed the footprint the seat was already given, at any player count, and they
+   scale down together with everything else as the table gets more crowded. */
+.table-seat-cards.revealed {
+  position: static;
+  transform: none;
+  margin-top: 0.2em;
+  gap: 0.15rem;
+}
+
+.table-seat-cards.revealed > * {
+  width: calc((var(--seat-w, calc(var(--tsz, 1rem) * 4.2)) - 0.15rem) / 2);
+  height: auto;
+  aspect-ratio: 5 / 7;
+  font-size: calc(var(--tsz, 1rem) * 0.5);
 }
 
 .table-seat .avatar {
