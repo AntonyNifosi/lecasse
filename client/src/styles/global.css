@@ -341,6 +341,17 @@ p {
 .token {
   width: calc(var(--tsz, 1rem) * 3.2);
   height: calc(var(--tsz, 1rem) * 3.2);
+  /* A chip is a <button> in the pot and a <span>/<div> elsewhere; the browser's default
+     button padding would otherwise make the two disagree about how big "inside the chip"
+     is, which the container query below reads straight off. */
+  padding: 0;
+  /* Lets the star markings size themselves off this chip's real box (see .token-stars) —
+     the pot's chips share the center block's width and shrink as the round adds more of
+     them, so their diameter isn't a fixed multiple of --tsz. */
+  container-type: size;
+  /* 0.3 of this chip's diameter — the largest a star can be while six of them still clear
+     the curve. Only used where container queries aren't supported. */
+  --star: calc(var(--tsz, 1rem) * 0.96);
   border-radius: 999px;
   display: flex;
   align-items: center;
@@ -595,45 +606,33 @@ p {
 }
 
 /* A token's value as stars rather than a digit, like the markings on the physical chips.
-   Each star takes 1/--cols of the row so the wrap lands exactly where TokenStars intends,
-   and the leftovers on the last row stay centered. Sizes are in em — deliberately relative
-   to whatever chip is hosting them, since the same component renders in the big pot chip,
-   the small one pinned to a seat and the flying ghost, all at different scales. */
+   One star size for every count and every chip — --star is set per chip below as a fraction
+   of that chip's own diameter, not of its font-size, since the pot chip, the small one
+   pinned to a seat and the flying ghost don't share the same text-to-chip proportion. Each
+   star gets exactly one glyph's worth of width, so the row wraps precisely where TokenStars
+   asked (--cols) and the leftovers on the last row stay centered under the ones above. */
 .token-stars {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-content: center;
-  width: 82%;
-  height: 82%;
-  line-height: 0.95;
-  letter-spacing: -0.05em;
+  width: calc(var(--cols, 3) * var(--star, 1em) * 0.95);
+  font-size: var(--star, 1em);
+  line-height: 0.9;
 }
 
 .token-stars > span {
-  flex: 0 0 calc(100% / var(--cols, 3));
+  flex: 0 0 calc(var(--star, 1em) * 0.95);
   text-align: center;
 }
 
-.token-stars[data-count='1'] {
-  font-size: 1.05em;
-}
-
-.token-stars[data-count='2'] {
-  font-size: 0.82em;
-}
-
-.token-stars[data-count='3'] {
-  font-size: 0.6em;
-}
-
-.token-stars[data-count='4'] {
-  font-size: 0.72em;
-}
-
-.token-stars[data-count='5'],
-.token-stars[data-count='6'] {
-  font-size: 0.52em;
+/* The real rule: 30% of the chip's own smaller side, whatever that chip's size happens to
+   be. Overriding --star itself (rather than just the font-size) keeps the row width and the
+   per-star column in step with it. The declarations above stay as the fallback. */
+@supports (width: 1cqmin) {
+  .token-stars {
+    --star: 30cqmin;
+  }
 }
 
 .history-pip {
@@ -1219,6 +1218,7 @@ p {
   width: calc(var(--tsz, 1rem) * 1.7);
   height: calc(var(--tsz, 1rem) * 1.7);
   font-size: calc(var(--tsz, 1rem) * 0.75);
+  --star: calc(var(--tsz, 1rem) * 0.51);
 }
 
 .table-seat-showdown {
@@ -1301,6 +1301,10 @@ p {
   position: fixed;
   width: 30px;
   height: 30px;
+  /* Its size comes from the chip it left (set inline), so it has to be its own container for
+     the star markings — it isn't a .token, and without this they'd size themselves against
+     the viewport instead. */
+  container-type: size;
   border-radius: 999px;
   border: 2px solid transparent;
   display: flex;

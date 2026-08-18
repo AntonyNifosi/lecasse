@@ -227,13 +227,13 @@ export function GameBoardScreen() {
             top: f.top,
             width: f.size,
             height: f.size,
-            // Same star-to-chip proportion the real tokens use, at whatever size this ghost
-            // was measured to be.
-            fontSize: Math.round(f.size * 0.34),
             background: f.color,
             borderColor: f.ringColor,
             animationDuration: `${f.durationMs}ms`,
             // @ts-expect-error -- custom properties aren't in React's CSSProperties type
+            // Same star-to-chip proportion the real chips use, at whatever size this ghost
+            // was measured to be.
+            '--star': `${(f.size * 0.3).toFixed(1)}px`,
             '--dx': `${f.dx}px`,
             '--dy': `${f.dy}px`,
             '--arc': `${f.arc}px`,
