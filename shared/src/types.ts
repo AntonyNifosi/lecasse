@@ -126,7 +126,6 @@ export interface PlayerPrivate {
 export type CardMode = 'avance' | 'pro' | 'gangster';
 
 export interface RoomSettings {
-  enabledCardIds: string[];
   mode: CardMode;
 }
 
@@ -153,6 +152,6 @@ export type ErrorCode =
   | 'TOKEN_UNAVAILABLE'
   | 'ROUND_INACTIVE'
   | 'REJOIN_FAILED'
-  | 'UNKNOWN_CARD'
   | 'GUESS_PENDING'
-  | 'GUESS_NOT_ALLOWED';
+  | 'GUESS_NOT_ALLOWED'
+  | 'NOT_YOUR_TURN';

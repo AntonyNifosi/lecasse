@@ -1,4 +1,4 @@
-const CACHE_NAME = 'le-casse-shell-v1';
+const CACHE_NAME = 'le-casse-shell-v3';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

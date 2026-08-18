@@ -11,7 +11,7 @@ asset ni texte du jeu original n'est réutilisé.
 
 - Parties en ligne à 3–6 joueurs : un joueur héberge, les autres rejoignent avec un code à 4 lettres.
 - Moteur de jeu 100 % côté serveur (autoritaire) : tours de jetons en temps réel, showdown, égalité parfaite.
-- 14 cartes bonus/malus originales, activables/désactivables en salle d'attente, qui se déclenchent après un succès (plus dur) ou un échec (plus facile) — inspirées du mode Avancé, avec des effets et un contenu propres à cette adaptation.
+- 14 cartes bonus/malus originales (le pack complet est toujours en jeu, avec les exclusions automatiques des modes Pro/Gangster), qui se déclenchent après un succès (plus dur) ou un échec (plus facile) — inspirées des modes Avancé/Pro/Gangster, avec des effets et un contenu propres à cette adaptation.
 - Reconnexion automatique (déconnexion Wi-Fi, mise en veille du téléphone) via un jeton stocké localement.
 - Pensé mobile d'abord (PWA installable), utilisable aussi sur ordinateur.
 

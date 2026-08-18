@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BONUS_MALUS_CARDS, VAULTS_TO_WIN, getCardById } from '@thegang/shared';
+import { VAULTS_TO_WIN, getCardById } from '@thegang/shared';
 import type { Card } from '@thegang/shared';
 import { createShuffledDeck } from './deck';
 import * as engine from './engine';
@@ -75,15 +75,33 @@ describe('engine — full heist flow', () => {
     ]);
     expect(room.game!.currentRound).toBe('showdown');
 
-    engine.revealNext(room); // alice
-    engine.revealNext(room); // bob
-    engine.revealNext(room); // carol -> resolves the heist
+    engine.revealNext(room, alice);
+    engine.revealNext(room, bob);
+    engine.revealNext(room, carol); // resolves the heist
 
     expect(room.game!.showdown!.failed).toBe(false);
     expect(room.game!.showdown!.revealed.every((r) => r.orderOk)).toBe(true);
     expect(room.game!.vaults).toBe(1);
     expect(room.game!.alarms).toBe(0);
     expect(room.game!.currentRound).toBe('result');
+  });
+
+  it('only lets the player whose turn it is reveal their hand', () => {
+    engine.startGame(room, alice);
+    forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], COMMUNITY);
+    fastForwardToRedRound(room, [alice, bob, carol]);
+    claimRound(room, [
+      { playerId: alice, stars: 1 },
+      { playerId: bob, stars: 2 },
+      { playerId: carol, stars: 3 },
+    ]);
+
+    expect(() => engine.revealNext(room, bob)).toThrow(GameError);
+    expect(() => engine.revealNext(room, carol)).toThrow(GameError);
+    expect(room.game!.showdown!.revealed).toHaveLength(0);
+
+    engine.revealNext(room, alice); // the actual next-in-line succeeds
+    expect(room.game!.showdown!.revealed).toHaveLength(1);
   });
 
   it('fails and flags the exact violation when a red token is out of order', () => {
@@ -98,11 +116,11 @@ describe('engine — full heist flow', () => {
       { playerId: alice, stars: 3 },
     ]);
 
-    engine.revealNext(room); // carol (strongest hand) revealed first — fine on its own
-    engine.revealNext(room); // bob — weaker than carol -> violation
+    engine.revealNext(room, carol); // strongest hand revealed first — fine on its own
+    engine.revealNext(room, bob); // weaker than carol -> violation
     expect(room.game!.showdown!.revealed[1].orderOk).toBe(false);
 
-    engine.revealNext(room); // alice — resolves the heist
+    engine.revealNext(room, alice); // resolves the heist
     expect(room.game!.showdown!.failed).toBe(true);
     expect(room.game!.alarms).toBe(1);
     expect(room.game!.vaults).toBe(0);
@@ -121,9 +139,9 @@ describe('engine — full heist flow', () => {
       { playerId: carol, stars: 3 },
     ]);
 
-    engine.revealNext(room);
-    engine.revealNext(room);
-    engine.revealNext(room);
+    engine.revealNext(room, bob);
+    engine.revealNext(room, alice);
+    engine.revealNext(room, carol);
 
     expect(room.game!.showdown!.revealed.every((r) => r.orderOk)).toBe(true);
     expect(room.game!.showdown!.failed).toBe(false);
@@ -164,8 +182,8 @@ describe('engine — bonus/malus cards', () => {
   });
 
   function winFirstHeist(cardId: string) {
-    rooms.toggleCard(room, alice, cardId, true);
     engine.startGame(room, alice);
+    room.cardPools.malusQueue = [cardId];
     forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], COMMUNITY);
     fastForwardToRedRound(room, [alice, bob, carol]);
     claimRound(room, [
@@ -173,15 +191,15 @@ describe('engine — bonus/malus cards', () => {
       { playerId: bob, stars: 2 },
       { playerId: carol, stars: 3 },
     ]);
-    engine.revealNext(room);
-    engine.revealNext(room);
-    engine.revealNext(room);
+    engine.revealNext(room, alice);
+    engine.revealNext(room, bob);
+    engine.revealNext(room, carol);
     expect(room.game!.vaults).toBe(1);
   }
 
   function loseFirstHeist(cardId: string) {
-    rooms.toggleCard(room, alice, cardId, true);
     engine.startGame(room, alice);
+    room.cardPools.bonusQueue = [cardId];
     forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], COMMUNITY);
     fastForwardToRedRound(room, [alice, bob, carol]);
     // scrambled on purpose: carol (strongest) gets the weakest token.
@@ -190,9 +208,9 @@ describe('engine — bonus/malus cards', () => {
       { playerId: bob, stars: 2 },
       { playerId: alice, stars: 3 },
     ]);
-    engine.revealNext(room);
-    engine.revealNext(room);
-    engine.revealNext(room);
+    engine.revealNext(room, carol);
+    engine.revealNext(room, bob);
+    engine.revealNext(room, alice);
     expect(room.game!.alarms).toBe(1);
   }
 
@@ -266,9 +284,9 @@ describe('engine — bonus/malus cards', () => {
       { playerId: others[1], stars: 3 },
     ]);
 
-    engine.revealNext(room);
-    engine.revealNext(room);
-    engine.revealNext(room);
+    engine.revealNext(room, others[0]);
+    engine.revealNext(room, wildId as string);
+    engine.revealNext(room, others[1]);
 
     expect(room.game!.showdown!.revealed.every((r) => r.orderOk)).toBe(true);
     expect(room.game!.vaults).toBe(1);
@@ -289,20 +307,20 @@ describe('engine — bonus/malus cards', () => {
 
     expect(room.game!.showdown!.guessGates).toMatchObject([{ guessType: 'category', targetPlayerId: carol, resolved: false }]);
 
-    engine.revealNext(room); // alice
-    engine.revealNext(room); // bob
-    expect(() => engine.revealNext(room)).toThrow(GameError); // carol is gated until the group votes
+    engine.revealNext(room, alice);
+    engine.revealNext(room, bob);
+    expect(() => engine.revealNext(room, carol)).toThrow(GameError); // carol is gated until the group votes
 
     engine.submitGuess(room, alice, 'trips'); // one of two votes — not enough to resolve yet
     expect(room.game!.showdown!.guessGates[0].resolved).toBe(false);
-    expect(() => engine.revealNext(room)).toThrow(GameError);
+    expect(() => engine.revealNext(room, carol)).toThrow(GameError);
 
     engine.submitGuess(room, bob, 'trips'); // unanimous, wrong — carol actually has two pair
     expect(room.game!.showdown!.guessGates[0].resolved).toBe(true);
     expect(room.game!.showdown!.guessGates[0].finalGuess).toBe('trips');
     expect(room.game!.showdown!.guessGates[0].correct).toBe(false);
 
-    engine.revealNext(room); // carol, now unblocked
+    engine.revealNext(room, carol); // now unblocked
     expect(room.game!.showdown!.revealed[2].orderOk).toBe(true); // the token order itself was correct
     expect(room.game!.showdown!.failed).toBe(true); // but the wrong guess fails the heist regardless
     expect(room.game!.alarms).toBe(1);
@@ -318,8 +336,8 @@ describe('engine — bonus/malus cards', () => {
       { playerId: bob, stars: 2 },
       { playerId: carol, stars: 3 },
     ]);
-    engine.revealNext(room);
-    engine.revealNext(room);
+    engine.revealNext(room, alice);
+    engine.revealNext(room, bob);
 
     const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.9); // picks the 2nd of the 2 tied choices
     try {
@@ -343,8 +361,8 @@ describe('engine — bonus/malus cards', () => {
       { playerId: bob, stars: 2 },
       { playerId: carol, stars: 3 },
     ]);
-    engine.revealNext(room);
-    engine.revealNext(room);
+    engine.revealNext(room, alice);
+    engine.revealNext(room, bob);
     expect(() => engine.submitGuess(room, carol, 'twoPair')).toThrow(GameError);
   });
 });
@@ -379,9 +397,9 @@ describe('rooms — joining between games', () => {
       { playerId: bob, stars: 2 },
       { playerId: carol, stars: 3 },
     ]);
-    engine.revealNext(room);
-    engine.revealNext(room);
-    engine.revealNext(room);
+    engine.revealNext(room, alice);
+    engine.revealNext(room, bob);
+    engine.revealNext(room, carol);
     expect(room.status).toBe('ended');
     expect(room.finalResult).toBe('win');
 
@@ -465,55 +483,6 @@ describe('engine — token history', () => {
   });
 });
 
-describe('rooms — randomizing cards', () => {
-  let room: RoomInternal;
-  let alice: string;
-  let bob: string;
-  let carol: string;
-
-  beforeEach(() => {
-    const created = rooms.createRoom('Alice', '#f00');
-    room = created.room;
-    alice = created.player.id;
-    bob = rooms.joinRoom(room, 'Bob', '#0f0').id;
-    carol = rooms.joinRoom(room, 'Carol', '#00f').id;
-  });
-
-  it('picks the requested number of malus cards without touching the bonus selection', () => {
-    rooms.toggleCard(room, alice, 'plan-vole', true); // a bonus card, should survive the malus randomize
-    rooms.randomizeCards(room, alice, 'malus', 3);
-
-    const enabled = room.settings.enabledCardIds.map((id) => getCardById(id)!);
-    const malus = enabled.filter((c) => c.kind === 'malus');
-    const bonus = enabled.filter((c) => c.kind === 'bonus');
-    expect(malus).toHaveLength(3);
-    expect(bonus.map((c) => c.id)).toEqual(['plan-vole']);
-  });
-
-  it('replaces a previous random malus pick rather than accumulating', () => {
-    rooms.randomizeCards(room, alice, 'malus', 5);
-    rooms.randomizeCards(room, alice, 'malus', 2);
-    const malusCount = room.settings.enabledCardIds.filter((id) => getCardById(id)!.kind === 'malus').length;
-    expect(malusCount).toBe(2);
-  });
-
-  it('clamps the count to the number of cards actually available', () => {
-    rooms.randomizeCards(room, alice, 'bonus', 999);
-    const bonusCount = room.settings.enabledCardIds.filter((id) => getCardById(id)!.kind === 'bonus').length;
-    expect(bonusCount).toBe(BONUS_MALUS_CARDS.filter((c) => c.kind === 'bonus').length);
-  });
-
-  it('rejects a non-host', () => {
-    expect(() => rooms.randomizeCards(room, bob, 'malus', 2)).toThrow(GameError);
-    expect(() => rooms.randomizeCards(room, carol, 'bonus', 2)).toThrow(GameError);
-  });
-
-  it('rejects once the game has left the lobby', () => {
-    engine.startGame(room, alice);
-    expect(() => rooms.randomizeCards(room, alice, 'malus', 2)).toThrow(GameError);
-  });
-});
-
 describe('engine — Pro mode', () => {
   let room: RoomInternal;
   let alice: string;
@@ -537,31 +506,39 @@ describe('engine — Pro mode', () => {
       { playerId: bob, stars: 2 },
       { playerId: carol, stars: 3 },
     ]);
-    engine.revealNext(room);
-    engine.revealNext(room);
-    engine.revealNext(room);
+    engine.revealNext(room, alice);
+    engine.revealNext(room, bob);
+    engine.revealNext(room, carol);
   }
 
   it('keeps one malus card permanently active from heist 1, and adds the normal rotation on top from heist 2', () => {
-    rooms.toggleCard(room, alice, 'jetons-colles', true);
-    rooms.toggleCard(room, alice, 'reperage-laser', true);
     engine.startGame(room, alice);
 
     expect(room.game!.activeCards).toHaveLength(1);
-    const permanentId = room.game!.activeCards[0].cardId;
-    expect(['jetons-colles', 'reperage-laser']).toContain(permanentId);
+    expect(getCardById(room.game!.activeCards[0].cardId)?.kind).toBe('malus');
+
+    // Re-pin to a non-gate card before playing out the heist — the random draw above could
+    // otherwise land on "alarme-silencieuse"/"coffre-double-fond", whose guess-gate winHeist()
+    // doesn't submit a vote for, which would make this test flaky.
+    room.proPermanentCard = { cardId: 'jetons-colles', kind: 'malus' };
+    room.game!.activeCards = [room.proPermanentCard];
+    const permanentId = 'jetons-colles';
 
     winHeist();
     engine.nextHeist(room);
 
-    expect(room.game!.activeCards.map((c) => c.cardId).sort()).toEqual(['jetons-colles', 'reperage-laser'].sort());
+    expect(room.game!.activeCards).toHaveLength(2);
+    expect(room.game!.activeCards.every((c) => c.kind === 'malus')).toBe(true);
     expect(room.game!.activeCards.some((c) => c.cardId === permanentId)).toBe(true);
   });
 
   it('excludes "vigile-zele" from the pool, same as the real Effraction n°1', () => {
-    rooms.toggleCard(room, alice, 'vigile-zele', true);
     engine.startGame(room, alice);
-    expect(room.game!.activeCards).toEqual([]);
+    const allMalusInPlay = [
+      ...(room.proPermanentCard ? [room.proPermanentCard.cardId] : []),
+      ...room.cardPools.malusQueue,
+    ];
+    expect(allMalusInPlay).not.toContain('vigile-zele');
     expect(room.game!.tokensByRound.white.active).toBe(true);
   });
 });
@@ -579,11 +556,6 @@ describe('engine — Gangster mode', () => {
     bob = rooms.joinRoom(room, 'Bob', '#0f0').id;
     carol = rooms.joinRoom(room, 'Carol', '#00f').id;
     rooms.setMode(room, alice, 'gangster');
-    // "jetons-colles"/"reperage-laser" only lock token ownership — they never touch hole
-    // cards or community cards, so they can't interfere with forceDeal's forced hands.
-    rooms.toggleCard(room, alice, 'jetons-colles', true);
-    rooms.toggleCard(room, alice, 'reperage-laser', true);
-    rooms.toggleCard(room, alice, 'plan-vole', true); // a bonus card — must never actually appear
   });
 
   function winHeist() {
@@ -594,9 +566,9 @@ describe('engine — Gangster mode', () => {
       { playerId: bob, stars: 2 },
       { playerId: carol, stars: 3 },
     ]);
-    engine.revealNext(room);
-    engine.revealNext(room);
-    engine.revealNext(room);
+    engine.revealNext(room, alice);
+    engine.revealNext(room, bob);
+    engine.revealNext(room, carol);
   }
 
   it('runs 2 malus cards at once from heist 1, never a bonus, and lowers the losing threshold to 2 alarms', () => {
@@ -604,6 +576,12 @@ describe('engine — Gangster mode', () => {
     expect(room.game!.activeCards).toHaveLength(2);
     expect(room.game!.activeCards.every((c) => c.kind === 'malus')).toBe(true);
     expect(room.game!.alarmsToLose).toBe(2);
+
+    // Re-pin to 2 non-gate cards before playing out the heist — the random draw above could
+    // otherwise land on "alarme-silencieuse"/"coffre-double-fond", whose guess-gate winHeist()
+    // doesn't submit a vote for, which would make this test flaky.
+    room.gangsterSlots = ['jetons-colles', 'reperage-laser'];
+    room.game!.activeCards = room.gangsterSlots.map((id) => ({ cardId: id, kind: getCardById(id)!.kind }));
 
     winHeist(); // the outcome doesn't gate Gangster's rotation, only vaults/alarms
     engine.nextHeist(room);
@@ -613,6 +591,10 @@ describe('engine — Gangster mode', () => {
 
   it('swaps out the oldest of the 2 slots for the next queued card each heist', () => {
     engine.startGame(room, alice);
+    // Pin the 2 starting slots (instead of the random draw from the full pool) so the
+    // rotation below is deterministic and can't collide with the seeded queue card.
+    room.gangsterSlots = ['jetons-colles', 'reperage-laser'];
+    room.game!.activeCards = room.gangsterSlots.map((id) => ({ cardId: id, kind: getCardById(id)!.kind }));
     // Seed a 3rd card into the queue so the next rotation pulls in something genuinely
     // new instead of immediately re-drawing the card that just rotated out.
     room.cardPools.malusQueue = ['mouchard'];

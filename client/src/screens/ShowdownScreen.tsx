@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { HAND_CATEGORIES, type GuessGate, type HandCategory, type Rank } from '@thegang/shared';
+import { HAND_CATEGORIES, ROUND_ORDER, type GuessGate, type HandCategory, type Rank } from '@thegang/shared';
 import { revealNext, submitGuess } from '../actions';
-import { Avatar } from '../components/Avatar';
 import { GameMenu } from '../components/GameMenu';
 import { PlayingCard } from '../components/PlayingCard';
+import { Table } from '../components/Table';
 import { useGameState } from '../state/GameContext';
-import { HAND_CATEGORY_LABELS, rankLabel } from '../theme';
+import { HAND_CATEGORY_LABELS, ROUND_TOKEN_COLOR, rankLabel } from '../theme';
 
 const GUESS_RANKS: Rank[] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 
@@ -21,7 +21,7 @@ function GuessPrompt({ guessType, onVoted }: { guessType: 'category' | 'rank'; o
   }
 
   return (
-    <div className="card stack">
+    <div className="stack">
       <p style={{ fontWeight: 700, color: 'var(--fg)' }}>
         {guessType === 'category' ? 'Votez pour sa catégorie de main :' : "Votez pour le rang d'une de ses cartes :"}
       </p>
@@ -65,74 +65,80 @@ export function ShowdownScreen({ onContinue }: Props) {
   const nextIndex = sd.revealed.length;
   const allRevealed = nextIndex >= sd.order.length;
   const nextPlayerId = sd.order[nextIndex];
+  const nextPlayer = room.players.find((p) => p.id === nextPlayerId);
   const pendingGates = sd.guessGates.filter((g) => g.targetPlayerId === nextPlayerId && !g.resolved);
   const gateBlocking = pendingGates.length > 0;
   const iAmTarget = pendingGates[0]?.targetPlayerId === myPlayerId;
+  const iAmNext = nextPlayerId === myPlayerId;
 
   return (
-    <div className="screen">
-      <div className="row-between">
-        <h2>L'abattage</h2>
+    <div className="table-screen">
+      <div className="table-screen-header">
+        <div>
+          <h2>L'abattage</h2>
+          <p className="muted">Du jeton le moins étoilé au plus étoilé.</p>
+        </div>
         <GameMenu />
       </div>
-      <p className="muted">Du jeton le moins étoilé au plus étoilé. Une main plus faible que la précédente fait échouer le braquage.</p>
 
-      <div className="stack center">
-        <span className="muted">Cartes communes</span>
-        <div className="card-row">
-          {game.communityCards.map((c, i) => (
-            <PlayingCard key={i} card={c} />
-          ))}
-        </div>
-      </div>
-
-      <div className="stack">
-        {sd.order.map((playerId, i) => {
-          const player = room.players.find((p) => p.id === playerId);
-          const entry = sd.revealed.find((r) => r.playerId === playerId);
-          const isNext = i === nextIndex;
-          const resolvedGuesses = sd.guessGates.filter(
-            (g): g is GuessGate & { finalGuess: HandCategory | Rank } => g.targetPlayerId === playerId && g.resolved && g.finalGuess !== null,
+      <Table
+        players={room.players}
+        myPlayerId={myPlayerId}
+        highlightPlayerId={allRevealed ? null : nextPlayerId}
+        centerContent={
+          <div className="card-row">
+            {game.communityCards.map((c, i) => (
+              <PlayingCard key={i} card={c} />
+            ))}
+          </div>
+        }
+        renderHoleCards={(player, isMe) => {
+          const entry = sd.revealed.find((r) => r.playerId === player.id);
+          return entry ? (
+            entry.holeCards.map((c, idx) => <PlayingCard key={idx} card={c} small={!isMe} />)
+          ) : (
+            <>
+              <PlayingCard faceDown small={!isMe} />
+              <PlayingCard faceDown small={!isMe} />
+            </>
           );
+        }}
+        renderBadge={(player) => {
+          const order = sd.order.indexOf(player.id);
           return (
-            <div
-              key={playerId}
-              className="card"
-              style={{ opacity: !entry && !isNext ? 0.45 : 1, borderColor: isNext ? 'var(--gold)' : undefined }}
-            >
-              <div className="row-between">
-                <div className="row">
-                  <span className="badge">{i + 1}★</span>
-                  <Avatar name={player?.name ?? '?'} color={player?.colorTag ?? '#888'} />
-                  <span className="player-name">{player?.name}</span>
-                </div>
-                {entry && <span>{entry.orderOk ? '✅' : '❌'}</span>}
-              </div>
-              {resolvedGuesses.map((g) => (
-                <p key={g.guessType} className="center muted" style={{ marginTop: '0.5rem' }}>
-                  Le groupe a deviné :{' '}
-                  <strong style={{ color: 'var(--fg)' }}>{guessLabel(g.guessType, g.finalGuess)}</strong>
-                </p>
-              ))}
-              <div className="card-row" style={{ marginTop: '0.6rem' }}>
-                {entry ? (
-                  entry.holeCards.map((c, idx) => <PlayingCard key={idx} card={c} large />)
-                ) : (
-                  <>
-                    <PlayingCard faceDown large />
-                    <PlayingCard faceDown large />
-                  </>
-                )}
-              </div>
-              {entry && (
-                <p className="center" style={{ marginTop: '0.5rem', fontWeight: 700, color: 'var(--fg)' }}>
-                  {HAND_CATEGORY_LABELS[entry.hand.category]}
-                </p>
-              )}
+            <div className="table-seat-badges">
+              <span className="badge">{order + 1}★</span>
+              {ROUND_ORDER.slice(0, 3).map((rc) => {
+                const roundState = game.tokensByRound[rc];
+                if (!roundState.active) return null;
+                const star = roundState.starsAvailable.find((s) => roundState.holderByStars[s] === player.id);
+                return (
+                  <span key={rc} className="history-pip" style={{ background: star ? ROUND_TOKEN_COLOR[rc] : 'transparent' }}>
+                    {star ?? ''}
+                  </span>
+                );
+              })}
             </div>
           );
-        })}
-      </div>
+        }}
+        renderSeatExtra={(player) => {
+          const entry = sd.revealed.find((r) => r.playerId === player.id);
+          if (!entry) return null;
+          const resolvedGuesses = sd.guessGates.filter(
+            (g): g is GuessGate & { finalGuess: HandCategory | Rank } =>
+              g.targetPlayerId === player.id && g.resolved && g.finalGuess !== null,
+          );
+          // Kept to a single line (icon + category, optionally "· devinette") — seats are
+          // tight on vertical room, so this stays one row regardless of how much text.
+          const guessSuffix = resolvedGuesses.map((g) => guessLabel(g.guessType, g.finalGuess)).join(' / ');
+          return (
+            <span className="table-seat-showdown">
+              {entry.orderOk ? '✅' : '❌'} {HAND_CATEGORY_LABELS[entry.hand.category]}
+              {guessSuffix && ` · ${guessSuffix}`}
+            </span>
+          );
+        }}
+      />
 
       <div className="sticky-footer stack">
         {allRevealed ? (
@@ -161,10 +167,12 @@ export function ShowdownScreen({ onContinue }: Props) {
               )}
             </div>
           )
-        ) : (
+        ) : iAmNext ? (
           <button type="button" className="btn btn-primary btn-block btn-lg" onClick={() => revealNext()}>
-            Révéler la main suivante
+            Révéler ma main
           </button>
+        ) : (
+          <p className="muted center">En attente que {nextPlayer?.name ?? '?'} révèle sa main…</p>
         )}
       </div>
     </div>

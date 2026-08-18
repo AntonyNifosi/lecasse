@@ -28,14 +28,6 @@ export function kickPlayer(playerId: string): void {
   socket.emit('room:kick', { playerId });
 }
 
-export function toggleCard(cardId: string, enabled: boolean): void {
-  socket.emit('settings:toggleCard', { cardId, enabled });
-}
-
-export function randomizeCards(kind: 'bonus' | 'malus', count: number): void {
-  socket.emit('settings:randomizeCards', { kind, count });
-}
-
 export function setMode(mode: CardMode): void {
   socket.emit('settings:setMode', { mode });
 }

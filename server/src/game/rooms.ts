@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { BONUS_MALUS_CARDS, MAX_PLAYERS, getCardById, type CardMode } from '@thegang/shared';
+import { MAX_PLAYERS, type CardMode } from '@thegang/shared';
 import { GameError } from './errors';
-import { shuffle } from './random';
 import type { InternalPlayer, RoomInternal } from './roomTypes';
 
 const rooms = new Map<string, RoomInternal>();
@@ -35,7 +34,7 @@ export function createRoom(name: string, colorTag: string): { room: RoomInternal
   const room: RoomInternal = {
     code: generateRoomCode(),
     status: 'lobby',
-    settings: { enabledCardIds: [], mode: 'avance' },
+    settings: { mode: 'avance' },
     players: [player],
     game: null,
     finalResult: null,
@@ -109,34 +108,10 @@ export function kickPlayer(room: RoomInternal, hostId: string, targetId: string)
   room.players = room.players.filter((p) => p.id !== targetId);
 }
 
-export function toggleCard(room: RoomInternal, hostId: string, cardId: string, enabled: boolean): void {
-  requireHost(room, hostId);
-  if (room.status !== 'lobby') throw new GameError('INVALID_STATE', 'Les réglages sont verrouillés une fois la partie lancée.');
-  if (!getCardById(cardId)) throw new GameError('UNKNOWN_CARD', 'Carte inconnue.');
-  const set = new Set(room.settings.enabledCardIds);
-  if (enabled) set.add(cardId);
-  else set.delete(cardId);
-  room.settings.enabledCardIds = Array.from(set);
-}
-
 export function setMode(room: RoomInternal, hostId: string, mode: CardMode): void {
   requireHost(room, hostId);
   if (room.status !== 'lobby') throw new GameError('INVALID_STATE', 'Les réglages sont verrouillés une fois la partie lancée.');
   room.settings.mode = mode;
-}
-
-/** Replaces the enabled cards of one kind with a random pick of `count` of them,
- * leaving the other kind's selection untouched. */
-export function randomizeCards(room: RoomInternal, hostId: string, kind: 'bonus' | 'malus', count: number): void {
-  requireHost(room, hostId);
-  if (room.status !== 'lobby') throw new GameError('INVALID_STATE', 'Les réglages sont verrouillés une fois la partie lancée.');
-  const pool = BONUS_MALUS_CARDS.filter((c) => c.kind === kind);
-  const clamped = Math.max(0, Math.min(Math.floor(count) || 0, pool.length));
-  const chosen = shuffle(pool)
-    .slice(0, clamped)
-    .map((c) => c.id);
-  const keptOtherKind = room.settings.enabledCardIds.filter((id) => getCardById(id)?.kind !== kind);
-  room.settings.enabledCardIds = [...keptOtherKind, ...chosen];
 }
 
 export function markDisconnected(room: RoomInternal, playerId: string): void {

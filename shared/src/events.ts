@@ -28,8 +28,6 @@ export interface ClientToServerEvents {
   'room:rejoin': (payload: { roomCode: string; playerId: string; secretToken: string }, cb: (res: RejoinAck) => void) => void;
   'room:leave': () => void;
   'room:kick': (payload: { playerId: string }) => void;
-  'settings:toggleCard': (payload: { cardId: string; enabled: boolean }) => void;
-  'settings:randomizeCards': (payload: { kind: 'bonus' | 'malus'; count: number }) => void;
   'settings:setMode': (payload: { mode: CardMode }) => void;
   'game:start': () => void;
   'token:take': (payload: { stars: number }) => void;

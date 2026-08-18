@@ -16,6 +16,8 @@
   --radius-lg: 20px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 * {
@@ -289,8 +291,8 @@ p {
 /* Playing cards */
 
 .playing-card {
-  width: 3rem;
-  height: 4.2rem;
+  width: calc(var(--tsz, 1rem) * 3);
+  height: calc(var(--tsz, 1rem) * 4.2);
   border-radius: 8px;
   background: #f4f1e8;
   color: #14161a;
@@ -299,7 +301,7 @@ p {
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 1.1rem;
+  font-size: calc(var(--tsz, 1rem) * 1.1);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   flex-shrink: 0;
   line-height: 1;
@@ -310,10 +312,12 @@ p {
   color: #b5262f;
 }
 
-.playing-card.large {
-  width: 4.2rem;
-  height: 5.9rem;
-  font-size: 1.5rem;
+.playing-card.small {
+  width: calc(var(--tsz, 1rem) * 2.1);
+  height: calc(var(--tsz, 1rem) * 2.9);
+  font-size: calc(var(--tsz, 1rem) * 0.8);
+  border-radius: 6px;
+  gap: 0.05rem;
 }
 
 .playing-card.face-down {
@@ -335,20 +339,26 @@ p {
 /* Tokens */
 
 .token {
-  width: 3.2rem;
-  height: 3.2rem;
+  width: calc(var(--tsz, 1rem) * 3.2);
+  height: calc(var(--tsz, 1rem) * 3.2);
   border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 1.05rem;
+  font-size: calc(var(--tsz, 1rem) * 1.05);
   border: 2px solid transparent;
   cursor: pointer;
   touch-action: manipulation;
   transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   color: #14100a;
   flex-shrink: 0;
+  /* Casino-chip edge: a light ring then a dark ring, both inset so they scale with the
+     token instead of being fixed-width borders. Pure box-shadow, no artwork. */
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 255, 255, 0.3),
+    inset 0 0 0 5px rgba(0, 0, 0, 0.18),
+    0 2px 5px rgba(0, 0, 0, 0.35);
 }
 
 .token:active {
@@ -368,7 +378,7 @@ p {
 
 .token-row {
   display: flex;
-  gap: 0.6rem;
+  gap: calc(var(--tsz, 1rem) * 0.75);
   justify-content: center;
   flex-wrap: wrap;
 }
@@ -543,24 +553,6 @@ p {
   }
 }
 
-.checklist-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.75rem 0;
-  cursor: pointer;
-}
-
-.checklist-item input {
-  margin-top: 0.2rem;
-  width: 1.2rem;
-  height: 1.2rem;
-  flex-shrink: 0;
-}
-
-.checklist-item .title {
-  font-weight: 600;
-}
 
 /* Game board extras */
 
@@ -574,16 +566,15 @@ p {
   flex-direction: column;
   align-items: center;
   gap: 0.3rem;
-  width: 3.6rem;
+  width: calc(var(--tsz, 1rem) * 3.6);
 }
 
-.token-slot-name {
-  font-size: 0.68rem;
+.token-empty-slot {
+  background: transparent;
+  border: 1.5px dashed var(--border);
   color: var(--fg-muted);
-  max-width: 3.6rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  opacity: 0.6;
+  cursor: default;
 }
 
 .token-lock {
@@ -789,12 +780,6 @@ p {
     font-size: 0.9rem;
   }
 
-  .playing-card.large {
-    width: 3.4rem;
-    height: 4.75rem;
-    font-size: 1.2rem;
-  }
-
   .token {
     width: 2.75rem;
     height: 2.75rem;
@@ -810,4 +795,455 @@ p {
   .divider {
     margin: 0.1rem 0;
   }
+}
+
+/* Poker table (game board / showdown) */
+
+.table-screen {
+  /* Base sizing unit for everything on the table (seats, cards, tokens). Bounded by
+     whichever dimension is actually scarce: portrait phones are short on width, landscape
+     ones are short on height, so this tracks the tighter of the two rather than assuming
+     either — growing on desktop viewports so the table doesn't stay pinned at its smallest
+     size when there's plenty of room. Expressed as calc(var(--tsz) * <original-rem-value>)
+     throughout so every table element grows together, proportionally, from one baseline. */
+  --tsz: clamp(0.85rem, min(2.6vh, 5.4vw), 1.7rem);
+  /* Fixed to the real viewport instead of flowing inside .app-shell: .app-shell only sets
+     min-height, which lets it grow past 100dvh (and scroll the whole page, header included)
+     if its content doesn't fit — fine for the portrait screens, but the table needs a hard
+     ceiling so .table-surface below can actually be forced to compress/scroll internally
+     rather than pushing the page (and my own docked seat) out of view. */
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: max(0.6rem, var(--safe-top)) max(0.6rem, var(--safe-right)) max(0.6rem, var(--safe-bottom)) max(0.6rem, var(--safe-left));
+  gap: 0.5rem;
+  background: var(--bg);
+  /* Last-resort escape hatch: if the viewport can't even give .table-arena its min-height
+     (very short screen once real browser chrome is subtracted), scroll rather than let the
+     oval squash until its rim seats close in on the cards in its middle. */
+  overflow-y: auto;
+}
+
+.table-screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+/* The oval and everything placed around it. Takes whatever height is left over after the
+   header and my own seat have had theirs, and never less than --arena-min: below that the
+   .table-screen scrolls instead, so the oval can't squash to the point where the seats on
+   its rim would close in on the cards in its middle. */
+.table-arena {
+  position: relative;
+  /* Kept to a fixed oval proportion rather than stretched to fill whatever's left, so the
+     table reads as a table instead of an egg on tall screens — the leftover space becomes
+     margin above and below (margin: auto centers it). min-height still wins on very short
+     viewports, where .table-screen scrolls rather than letting the oval squash. */
+  width: 100%;
+  aspect-ratio: 62 / 100;
+  max-height: 100%;
+  min-height: calc(var(--tsz, 1rem) * 20);
+  margin: auto;
+  /* The felt, the opponents and the center are all absolutely positioned, so my own seat is
+     the only child left in flow — justify-content drops it onto the bottom of the felt,
+     while flow layout keeps guaranteeing it its own space (see Table). */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  /* How wide a rim seat and the center block are allowed to be. At 4-5 opponents the two
+     lowest seats swing down alongside the community cards, so both shrink to keep a gap
+     between them — verified by measurement at 3 to 6 players on a 375px-wide portrait
+     viewport, the tightest case this has to survive. */
+  --seat-w: calc(var(--tsz, 1rem) * 4.2);
+  --center-w: 66%;
+  /* Half a seat — the margin Table's seatPosition keeps between the ring and the arena's
+     edges, so a seat's box always lands fully inside it. */
+  --seat-inset-x: calc(var(--seat-w) / 2);
+  /* Half a seat vertically — sized for the tallest a seat gets (avatar, name plate, round
+     pips and, during the showdown, its result line), not just its plainest form, so the
+     guard still holds on the screen where seats carry the most under them. */
+  --seat-inset-y: calc(var(--tsz, 1rem) * 2.9);
+}
+
+.table-arena[data-opponents='3'] {
+  --seat-w: calc(var(--tsz, 1rem) * 3.6);
+  --center-w: 58%;
+}
+
+.table-arena[data-opponents='4'] {
+  --seat-w: calc(var(--tsz, 1rem) * 3.3);
+  --center-w: 54%;
+}
+
+.table-arena[data-opponents='5'] {
+  --seat-w: calc(var(--tsz, 1rem) * 3);
+  --center-w: 50%;
+}
+
+/* Felt + rail: a true ellipse (border-radius: 50%) filling the arena, in a dark green bed
+   of hand-picked shades near the app's existing --green accent, ringed by a warm wood rail
+   with a thin gold hairline inside it. Purely decorative — the seats and center content are
+   its siblings, positioned over it, so nothing can ever be clipped by its curve. */
+.table-felt {
+  position: absolute;
+  inset: calc(var(--tsz, 1rem) * 1.5) calc(var(--tsz, 1rem) * 1.8);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 40%, #2f5c3a 0%, #1f4029 62%, #14301d 100%);
+  border: calc(var(--tsz, 1rem) * 0.42) solid #3e2a19;
+  box-shadow:
+    inset 0 0 0 2px rgba(224, 168, 62, 0.3),
+    inset 0 8px 34px rgba(0, 0, 0, 0.45),
+    0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+/* Community cards + token pot, in the middle of the felt. Sized off the ellipse's narrower
+   waist rather than the arena box, so a five-card row still clears the curve. */
+.table-center {
+  position: absolute;
+  left: 50%;
+  /* `top` comes from Table (just under the lowest rim seat); the bottom edge clears my own
+     seat, and the content is centered in whatever band is left between the two. */
+  bottom: calc(var(--tsz, 1rem) * 4.6);
+  transform: translateX(-50%);
+  width: var(--center-w, 74%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--tsz, 1rem) * 0.4);
+}
+
+/* The five community cards share whatever width the center block has, however many players
+   are seated around it — so they shrink together rather than wrapping onto a second row. */
+.table-center .playing-card {
+  width: calc((100% - var(--tsz, 1rem) * 0.88) / 5);
+  height: auto;
+  aspect-ratio: 5 / 7;
+  font-size: calc(var(--tsz, 1rem) * 0.75);
+}
+
+.table-center .card-row {
+  /* Full-width so the cards' percentage widths above resolve against the center block
+     rather than against the row's own shrink-to-fit content width. */
+  width: 100%;
+  gap: calc(var(--tsz, 1rem) * 0.22);
+  flex-wrap: nowrap;
+}
+
+/* Same idea as the cards above: the pot's chips share the center block's width and shrink
+   together rather than wrapping onto a second row, however many stars this round has. */
+.table-center .token-row {
+  width: 100%;
+  flex-wrap: nowrap;
+  gap: calc(var(--tsz, 1rem) * 0.3);
+}
+
+.table-center .token-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  max-width: calc(var(--tsz, 1rem) * 2.8);
+}
+
+.table-center .token {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  font-size: calc(var(--tsz, 1rem) * 0.9);
+}
+
+/* One opponent, sitting on the oval's rim — placed by Table's seatPosition (left/top as
+   percentages of .table-arena) and centered on that point. */
+.table-seat {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  width: var(--seat-w, calc(var(--tsz, 1rem) * 4.2));
+}
+
+.table-seat.disconnected {
+  opacity: 0.5;
+}
+
+.table-seat .avatar {
+  width: calc(var(--tsz, 1rem) * 2.2);
+  height: calc(var(--tsz, 1rem) * 2.2);
+  font-size: calc(var(--tsz, 1rem) * 0.95);
+}
+
+.table-seat.highlighted .avatar {
+  box-shadow: 0 0 0 3px var(--gold);
+}
+
+/* Name plate: a dark tag under the avatar, the way a real table labels each seat — also
+   keeps the name legible where a seat straddles the felt's edge and the background behind
+   it changes from green to page black. */
+.table-seat-name {
+  /* Above the card fan, which hangs down from behind the avatar — the name has to stay
+     readable whatever overlaps it. */
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: calc(var(--tsz, 1rem) * 0.62);
+  font-weight: 600;
+  max-width: 100%;
+  padding: 0.1em 0.5em;
+  border-radius: 999px;
+  background: rgba(8, 11, 10, 0.92);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-seat-host {
+  color: var(--gold);
+  font-size: calc(var(--tsz, 1rem) * 0.65);
+}
+
+.table-seat-badges {
+  display: flex;
+  gap: 0.1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.table-seat-badges .history-pip {
+  width: calc(var(--tsz, 1rem) * 1);
+  height: calc(var(--tsz, 1rem) * 1);
+  font-size: calc(var(--tsz, 1rem) * 0.55);
+}
+
+/* Avatar, cards and token all stacked in one avatar-sized box, so the seat's height is
+   basically "an avatar plus a name plate" no matter what it's holding. */
+.table-seat-figure {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The two hole cards, fanned out from behind the avatar the way a dealt hand sits on the
+   felt — absolutely placed, so they add no height to the seat. */
+.table-seat-cards {
+  position: absolute;
+  /* Pulled up so the fan peeks out above and beside the avatar — low enough and the
+     rotated bottom corners reach down over the name plate below. */
+  top: calc(var(--tsz, 1rem) * -0.8);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+}
+
+.table-seat-cards > * {
+  width: calc(var(--tsz, 1rem) * 1.5);
+  height: calc(var(--tsz, 1rem) * 2.1);
+  font-size: calc(var(--tsz, 1rem) * 0.6);
+  border-radius: 4px;
+  /* A pale edge on each card so the two stay legible as two cards where they overlap —
+     face-down backs are dark on dark felt otherwise, and read as one black blob. */
+  box-shadow: 0 0 0 1px rgba(244, 241, 232, 0.35), 0 2px 5px rgba(0, 0, 0, 0.45);
+}
+
+.table-seat-cards > *:first-child {
+  transform: rotate(-14deg) translateX(24%);
+}
+
+.table-seat-cards > *:last-child {
+  transform: rotate(14deg) translateX(-24%);
+}
+
+.table-seat .avatar {
+  position: relative;
+  z-index: 1;
+}
+
+/* A player's current-round token, pinned as a chip on the corner of their avatar once
+   claimed (the pot keeps an empty slot behind — see .token-empty-slot). */
+.table-seat .token {
+  position: absolute;
+  right: calc(var(--tsz, 1rem) * -0.5);
+  bottom: calc(var(--tsz, 1rem) * -0.3);
+  z-index: 2;
+  width: calc(var(--tsz, 1rem) * 1.7);
+  height: calc(var(--tsz, 1rem) * 1.7);
+  font-size: calc(var(--tsz, 1rem) * 0.75);
+}
+
+.table-seat-showdown {
+  display: block;
+  font-size: calc(var(--tsz, 1rem) * 0.58);
+  max-width: 100%;
+  padding: 0.1em 0.4em;
+  border-radius: 999px;
+  background: rgba(10, 14, 12, 0.78);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* My own seat: tucked up onto the oval's bottom edge (negative margin) so it reads as the
+   seat closest to the viewer, but kept in normal flow rather than placed by percentage like
+   the others — it's the one element that must never be clipped or overlapped, and flow
+   layout guarantees it its own space however little room the viewport leaves. Sized up and
+   ringed in gold, since it's the hand I actually hold. */
+.my-seat {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--tsz, 1rem) * 0.6);
+  padding-bottom: calc(var(--tsz, 1rem) * 0.6);
+  flex-shrink: 0;
+}
+
+.my-seat .avatar {
+  width: calc(var(--tsz, 1rem) * 3.2);
+  height: calc(var(--tsz, 1rem) * 3.2);
+  font-size: calc(var(--tsz, 1rem) * 1.35);
+  flex-shrink: 0;
+  /* A permanent gold ring marking "this one's you" — .highlighted (showdown: your turn to
+     reveal) intensifies it further below, so the two states still read apart. */
+  box-shadow: 0 0 0 3px rgba(224, 168, 62, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.my-seat.highlighted .avatar {
+  box-shadow: 0 0 0 4px var(--gold), 0 0 18px rgba(224, 168, 62, 0.7);
+}
+
+.my-seat-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.my-seat-name {
+  position: relative;
+  z-index: 3;
+  font-weight: 700;
+  font-size: calc(var(--tsz, 1rem) * 0.8);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1em 0.6em;
+  border-radius: 999px;
+  background: rgba(8, 11, 10, 0.92);
+  max-width: calc(var(--tsz, 1rem) * 7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-seat-cards {
+  display: flex;
+  gap: calc(var(--tsz, 1rem) * 0.35);
+  flex-shrink: 0;
+}
+
+/* Flying token ghost: a decorative clone that travels from wherever a token came from
+   (the center pot, or a player's seat) to wherever it just went — the real interactive
+   token in the pot never actually moves, this is purely visual. */
+
+.token-flight {
+  position: fixed;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #14100a;
+  pointer-events: none;
+  z-index: 60;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  animation: tokenFlight 0.45s ease-out forwards;
+}
+
+@keyframes tokenFlight {
+  from {
+    transform: translate(0, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--dx), var(--dy));
+    opacity: 0;
+  }
+}
+
+/* Token claim/steal/contested effects */
+
+@keyframes tokenClaim {
+  0% {
+    transform: scale(0.6);
+    box-shadow: 0 0 0 0 rgba(224, 168, 62, 0.7);
+  }
+  60% {
+    transform: scale(1.25);
+    box-shadow: 0 0 0 10px rgba(224, 168, 62, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(224, 168, 62, 0);
+  }
+}
+
+.token.token-flash {
+  animation: tokenClaim 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes tokenStolen {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px) rotate(-4deg);
+  }
+  75% {
+    transform: translateX(3px) rotate(4deg);
+  }
+}
+
+.seat-pip-flash-lost {
+  display: inline-flex;
+  animation: tokenStolen 0.35s ease;
+  filter: brightness(0.6);
+}
+
+@keyframes emberPulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px rgba(224, 168, 62, 0.5));
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 7px rgba(224, 168, 62, 0.9));
+    transform: scale(1.08);
+  }
+}
+
+.token.contested::after {
+  content: '🔥';
+  position: absolute;
+  top: -0.65rem;
+  right: -0.5rem;
+  font-size: 0.85rem;
+  animation: emberPulse 1.6s ease-in-out infinite;
+}
+
+.table-seat.hyperactive .avatar {
+  animation: emberPulse 1.6s ease-in-out infinite;
 }

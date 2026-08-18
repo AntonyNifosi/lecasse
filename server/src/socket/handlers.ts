@@ -132,28 +132,6 @@ export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
     }
   });
 
-  socket.on('settings:toggleCard', ({ cardId, enabled }) => {
-    const room = currentRoom(socket);
-    if (!room || !socket.data.playerId) return;
-    try {
-      rooms.toggleCard(room, socket.data.playerId, cardId, enabled);
-      broadcastRoom(io, room);
-    } catch (err) {
-      sendError(socket, err);
-    }
-  });
-
-  socket.on('settings:randomizeCards', ({ kind, count }) => {
-    const room = currentRoom(socket);
-    if (!room || !socket.data.playerId) return;
-    try {
-      rooms.randomizeCards(room, socket.data.playerId, kind, count);
-      broadcastRoom(io, room);
-    } catch (err) {
-      sendError(socket, err);
-    }
-  });
-
   socket.on('settings:setMode', ({ mode }) => {
     const room = currentRoom(socket);
     if (!room || !socket.data.playerId) return;
@@ -216,9 +194,9 @@ export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
 
   socket.on('showdown:revealNext', () => {
     const room = currentRoom(socket);
-    if (!room) return;
+    if (!room || !socket.data.playerId) return;
     try {
-      engine.revealNext(room);
+      engine.revealNext(room, socket.data.playerId);
       broadcastRoom(io, room);
     } catch (err) {
       sendError(socket, err);

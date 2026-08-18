@@ -20,6 +20,8 @@ function joinErrorMessage(code: ErrorCode): string {
       return 'Cette salle est complète';
     case 'NAME_TAKEN':
       return 'Ce pseudo est déjà pris dans cette salle';
+    case 'INVALID_STATE':
+      return 'Un braquage est en cours dans cette salle, réessayez entre deux parties.';
     default:
       return 'Une erreur est survenue, réessayez.';
   }

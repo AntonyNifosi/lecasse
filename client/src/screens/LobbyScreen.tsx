@@ -1,12 +1,9 @@
 import { useState } from 'react';
-import { BONUS_MALUS_CARDS, MAX_PLAYERS, MIN_PLAYERS, type CardMode } from '@thegang/shared';
-import { kickPlayer, leaveRoom, randomizeCards, setMode, startGame, toggleCard } from '../actions';
+import { MAX_PLAYERS, MIN_PLAYERS, type CardMode } from '@thegang/shared';
+import { kickPlayer, leaveRoom, setMode, startGame } from '../actions';
 import { Avatar } from '../components/Avatar';
 import { clearSession } from '../session';
 import { useGameDispatch, useGameState } from '../state/GameContext';
-
-const MALUS_CARDS = BONUS_MALUS_CARDS.filter((card) => card.kind === 'malus');
-const BONUS_CARDS = BONUS_MALUS_CARDS.filter((card) => card.kind === 'bonus');
 
 const MODE_INFO: Record<CardMode, { label: string; description: string }> = {
   avance: {
@@ -26,26 +23,6 @@ const MODE_INFO: Record<CardMode, { label: string; description: string }> = {
 };
 const MODES: CardMode[] = ['avance', 'pro', 'gangster'];
 
-function RandomizePicker({ max, onPick }: { max: number; onPick: (count: number) => void }) {
-  const [count, setCount] = useState(Math.min(3, max));
-  return (
-    <div className="row" style={{ gap: '0.4rem', flexWrap: 'wrap' }}>
-      <input
-        type="number"
-        className="input"
-        style={{ width: '4rem', minHeight: '40px', padding: '0.5rem', textAlign: 'center' }}
-        min={0}
-        max={max}
-        value={count}
-        onChange={(e) => setCount(Math.max(0, Math.min(max, Math.floor(Number(e.target.value)) || 0)))}
-      />
-      <button type="button" className="btn btn-secondary" onClick={() => onPick(count)}>
-        🎲 Aléatoire
-      </button>
-    </div>
-  );
-}
-
 export function LobbyScreen() {
   const { room, myPlayerId } = useGameState();
   const dispatch = useGameDispatch();
@@ -55,7 +32,6 @@ export function LobbyScreen() {
 
   const me = room.players.find((p) => p.id === myPlayerId);
   const isHost = me?.isHost ?? false;
-  const enabledCardIds = room.settings.enabledCardIds;
   const tooFew = room.players.length < MIN_PLAYERS;
   const tooMany = room.players.length > MAX_PLAYERS;
   const canStart = !tooFew && !tooMany;
@@ -130,62 +106,10 @@ export function LobbyScreen() {
           ))}
         </div>
         <p className="muted">{MODE_INFO[room.settings.mode].description}</p>
-      </div>
-
-      <div className="stack">
-        <div className="row-between" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-          <h2>Cartes malus (plus difficile)</h2>
-          {isHost && <RandomizePicker max={MALUS_CARDS.length} onPick={(n) => randomizeCards('malus', n)} />}
-        </div>
         {room.settings.mode !== 'avance' && (
           <p className="muted" style={{ fontSize: '0.85rem' }}>
-            "Vigile zélé" n'est jamais tirée en mode Pro ou Gangster, même si elle est cochée.
+            "Vigile zélé" est automatiquement exclue du tirage en mode Pro et Gangster.
           </p>
-        )}
-        <div>
-          {MALUS_CARDS.map((card) => (
-            <label key={card.id} className="checklist-item">
-              <input
-                type="checkbox"
-                checked={enabledCardIds.includes(card.id)}
-                disabled={!isHost}
-                onChange={(e) => toggleCard(card.id, e.target.checked)}
-              />
-              <div>
-                <div className="title">{card.name}</div>
-                <div className="muted">{card.description}</div>
-              </div>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div className="stack">
-        <div className="row-between" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-          <h2>Cartes bonus (plus facile)</h2>
-          {isHost && room.settings.mode !== 'gangster' && (
-            <RandomizePicker max={BONUS_CARDS.length} onPick={(n) => randomizeCards('bonus', n)} />
-          )}
-        </div>
-        {room.settings.mode === 'gangster' ? (
-          <p className="muted">Pas de cartes bonus en mode Gangster.</p>
-        ) : (
-          <div>
-            {BONUS_CARDS.map((card) => (
-              <label key={card.id} className="checklist-item">
-                <input
-                  type="checkbox"
-                  checked={enabledCardIds.includes(card.id)}
-                  disabled={!isHost}
-                  onChange={(e) => toggleCard(card.id, e.target.checked)}
-                />
-                <div>
-                  <div className="title">{card.name}</div>
-                  <div className="muted">{card.description}</div>
-                </div>
-              </label>
-            ))}
-          </div>
         )}
       </div>
 

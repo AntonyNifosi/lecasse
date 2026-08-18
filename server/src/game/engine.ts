@@ -1,6 +1,7 @@
 import {
   ALARMS_TO_LOSE,
   BASE_HOLE_CARDS,
+  BONUS_MALUS_CARDS,
   MAX_PLAYERS,
   MIN_PLAYERS,
   ROUND_ORDER,
@@ -84,14 +85,11 @@ export function startGame(room: RoomInternal, playerId: string): SideEffect[] {
   }
 
   const mode = room.settings.mode;
-  const enabled = room.settings.enabledCardIds
-    .map((id) => getCardById(id))
-    .filter((c): c is BonusMalusCard => !!c);
   const excludeInHardModes = mode === 'pro' || mode === 'gangster';
-  const malusPool = enabled
-    .filter((c) => c.kind === 'malus' && !(excludeInHardModes && c.id === HARD_MODE_EXCLUDED_CARD_ID))
-    .map((c) => c.id);
-  const bonusPool = mode === 'gangster' ? [] : enabled.filter((c) => c.kind === 'bonus').map((c) => c.id);
+  const malusPool = BONUS_MALUS_CARDS.filter(
+    (c) => c.kind === 'malus' && !(excludeInHardModes && c.id === HARD_MODE_EXCLUDED_CARD_ID),
+  ).map((c) => c.id);
+  const bonusPool = mode === 'gangster' ? [] : BONUS_MALUS_CARDS.filter((c) => c.kind === 'bonus').map((c) => c.id);
   room.cardPools = { malusQueue: shuffle(malusPool), bonusQueue: shuffle(bonusPool) };
   room.proPermanentCard = null;
   room.gangsterSlots = [];
@@ -399,7 +397,7 @@ function compareForShowdownOrder(curr: { hand: HandEvaluation; isWild: boolean }
   return compareHandRank(curr.hand, prev.hand);
 }
 
-export function revealNext(room: RoomInternal): void {
+export function revealNext(room: RoomInternal, callerId: string): void {
   const game = requireGame(room);
   if (game.currentRound !== 'showdown' || !game.showdown) {
     throw new GameError('INVALID_STATE', "Ce n'est pas le moment de révéler une main.");
@@ -408,6 +406,9 @@ export function revealNext(room: RoomInternal): void {
   const idx = sd.revealed.length;
   if (idx >= sd.order.length) throw new GameError('INVALID_STATE', 'Toutes les mains ont déjà été révélées.');
   const revealPlayerId = sd.order[idx];
+  if (revealPlayerId !== callerId) {
+    throw new GameError('NOT_YOUR_TURN', "Seul le gangster concerné peut révéler sa main.");
+  }
 
   if (sd.guessGates.some((g) => g.targetPlayerId === revealPlayerId && !g.resolved)) {
     throw new GameError('GUESS_PENDING', "Le groupe doit d'abord deviner avant cette révélation.");
