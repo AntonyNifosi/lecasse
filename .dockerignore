@@ -2,4 +2,8 @@ node_modules
 **/node_modules
 **/dist
 .git
+.github
 *.log
+.env
+client/android
+client/assets

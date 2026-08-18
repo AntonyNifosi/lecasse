@@ -5,3 +5,9 @@ dist/
 .DS_Store
 *.tsbuildinfo
 .claude/settings.local.json
+
+# Projet Android et icônes : entièrement régénérés à partir de capacitor.config.ts et de
+# client/public/icon.svg (voir le workflow APK Android), donc jamais versionnés.
+client/android/
+client/assets/
+

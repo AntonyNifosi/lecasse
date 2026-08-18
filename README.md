@@ -41,24 +41,133 @@ une partie à plusieurs. Pour tester depuis un téléphone sur le même Wi-Fi, r
 npm run test
 ```
 
-## Déploiement
+## Héberger le serveur
 
-L'application est un seul service déployable : en production, le serveur Express sert
-aussi les fichiers statiques du client buildé, sur la même origine que Socket.IO (pas de
-CORS à gérer, une seule URL à partager).
+L'application est un seul service : le serveur Express sert aussi les fichiers statiques du
+client buildé, sur la même origine que Socket.IO. Une seule URL à partager, rien à
+persister — les salons vivent en mémoire et disparaissent avec le processus.
 
-- **Build** : `npm ci && npm run build -w client`
-- **Start** : `npm run start -w server`
-- Le serveur lit `PORT` depuis l'environnement (par défaut 3001) — la plupart des
-  hébergeurs (Render, Railway, Fly.io…) l'injectent automatiquement.
+### Avec Docker (recommandé)
 
-Un `Dockerfile` est fourni à la racine pour un déploiement par conteneur, sur n'importe
-quel hébergeur qui le supporte :
+Le conteneur ne publie qu'un port sur la machine hôte, donc il cohabite sans rien demander
+avec d'autres conteneurs déjà en place : il suffit que le port choisi soit libre. Il ne
+prend ni 80 ni 443 et n'a pas besoin de reverse proxy pour fonctionner.
 
 ```bash
-docker build -t le-casse .
-docker run -p 3001:3001 le-casse
+git clone <votre-dépôt> le-casse && cd le-casse
+cp .env.example .env          # ajustez HOST_PORT si 3001 est déjà pris
+docker compose up -d --build
 ```
+
+Le jeu est alors sur `http://ADRESSE_DU_SERVEUR:HOST_PORT`. Ensuite :
+
+```bash
+docker compose logs -f            # suivre les logs
+docker compose ps                 # état + résultat du healthcheck
+git pull && docker compose up -d --build   # mettre à jour
+```
+
+Le serveur expose `/healthz` (utilisé par le healthcheck du conteneur, et pratique pour de
+la supervision).
+
+### Sans Docker
+
+```bash
+npm ci
+npm run build -w client
+PORT=3001 npm run start -w server
+```
+
+### Variables d'environnement
+
+| Variable       | Défaut | Rôle                                                                    |
+| -------------- | ------ | ----------------------------------------------------------------------- |
+| `PORT`         | `3001` | Port d'écoute du serveur.                                               |
+| `HOST_PORT`    | `3001` | (compose) Port publié sur la machine hôte.                              |
+| `CORS_ORIGINS` | vide   | Origines autorisées, séparées par des virgules. Vide = toutes acceptées. |
+
+`CORS_ORIGINS` vide est un choix, pas un oubli : l'app Android sert ses pages depuis l'APK
+et parle donc au serveur en cross-origin par nature. Il n'y a rien à protéger par origine —
+ni cookie, ni identifiant implicite du navigateur — et un salon n'est jamais plus privé que
+son code à 4 lettres.
+
+### En HTTP simple (adresse IP, sans nom de domaine)
+
+C'est le mode de fonctionnement par défaut ci-dessus, et le jeu marche entièrement ainsi,
+navigateur comme APK. Deux limites à connaître :
+
+- **Pas d'installation en PWA** depuis un navigateur : l'installation et le service worker
+  exigent un contexte sécurisé (HTTPS ou `localhost`). L'APK Android n'est pas concerné.
+- **L'APK doit accepter le trafic en clair**, ce qui est déjà configuré dans
+  [`client/capacitor.config.ts`](client/capacitor.config.ts) (`allowMixedContent` +
+  `cleartext`).
+
+Le jour où vous avez un nom de domaine pointant sur la machine, un reverse proxy avec
+certificat automatique suffit à passer en HTTPS — par exemple, avec Caddy :
+
+```
+lecasse.exemple.fr {
+    reverse_proxy localhost:3001
+}
+```
+
+Il n'y a alors plus rien à changer côté serveur ; côté APK, retirez `allowMixedContent` et
+`cleartext` de `capacitor.config.ts` et reconstruisez avec la nouvelle adresse.
+
+## APK Android
+
+Le client web est empaqueté tel quel dans une coque Android
+([Capacitor](https://capacitorjs.com/)) : même jeu, même code, mais les pages viennent de
+l'APK au lieu d'être servies par le serveur. C'est pour ça que l'adresse du serveur doit
+être connue **au moment du build** — d'où `VITE_SERVER_URL`.
+
+Le projet Android n'est pas versionné : il est régénéré à chaque build à partir de
+`capacitor.config.ts` et de `client/public/icon.svg`, qui restent les seules sources à
+modifier.
+
+### Construire l'APK
+
+1. Dans le dépôt GitHub, **Settings → Secrets and variables → Actions → Variables**, créez
+   la variable `SERVER_URL` avec l'adresse publique du serveur (ex. `http://192.0.2.10:3001`).
+2. Onglet **Actions → APK Android → Run workflow**. L'adresse peut aussi être saisie
+   directement au lancement, ce qui prend le pas sur la variable.
+3. L'APK est en pièce jointe du run (section *Artifacts*), à récupérer et à installer sur le
+   téléphone (il faut autoriser l'installation depuis une source inconnue).
+
+Pousser un tag `v*` (`git tag v1.0.0 && git push --tags`) fait la même chose et attache en
+plus l'APK à une release GitHub.
+
+### Clé de signature (recommandé)
+
+Sans clé configurée, le workflow produit un APK de **debug** : installable, mais chaque run
+le signe avec une clé différente, donc Android refusera d'installer un nouveau build
+par-dessus l'ancien sans désinstaller d'abord (ce qui efface la session en cours).
+
+Pour y remédier, générez une clé une fois pour toutes :
+
+```bash
+keytool -genkey -v -keystore le-casse.jks -keyalg RSA -keysize 2048 -validity 10000 -alias le-casse
+base64 -w0 le-casse.jks    # macOS : base64 -i le-casse.jks
+```
+
+Puis créez 4 secrets de dépôt (**Settings → Secrets and variables → Actions → Secrets**) :
+`ANDROID_KEYSTORE_BASE64` (la sortie de la commande ci-dessus), `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS` (`le-casse`), `ANDROID_KEY_PASSWORD`. Le workflow bascule alors seul sur
+un APK de release signé. **Conservez le fichier `.jks`** : le perdre interdit définitivement
+toute mise à jour des installations existantes.
+
+### Construire en local
+
+```bash
+cd client
+VITE_SERVER_URL=http://192.0.2.10:3001 npm run build -w ../client
+npx cap add android          # une seule fois
+npm run android:assets
+npx cap sync android
+cd android && ./gradlew assembleDebug
+```
+
+Prérequis : JDK 21 et le SDK Android (Android Studio le fournit).
 
 ## Structure du jeu
 

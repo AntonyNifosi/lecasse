@@ -1,0 +1,138 @@
+name: APK Android
+
+# Construit un APK installable du jeu. Le client web est empaqueté tel quel dans une coque
+# Android (Capacitor) : il ne change pas, il parle juste au serveur par le réseau au lieu
+# d'être servi par lui — d'où l'adresse du serveur, qui doit être connue à la compilation.
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: "Adresse du serveur de jeu (ex: http://192.0.2.10:3001). Vide = variable SERVER_URL du dépôt."
+        required: false
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write # pour attacher l'APK à la release quand le déclencheur est un tag
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Vide si le secret n'existe pas : c'est ce qui décide entre un APK de release signé
+      # et un APK de debug (voir les deux étapes de build plus bas).
+      KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Déterminer l'adresse du serveur et la version
+        id: config
+        run: |
+          SERVER_URL="${{ inputs.server_url || vars.SERVER_URL }}"
+          if [ -z "$SERVER_URL" ]; then
+            echo "::error::Aucune adresse de serveur. Renseignez-la au lancement du workflow, ou créez une variable de dépôt SERVER_URL (Settings > Secrets and variables > Actions > Variables)."
+            exit 1
+          fi
+          # versionName lisible ; versionCode strictement croissant, sinon Android refuse
+          # d'installer un build par-dessus le précédent.
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(node -p "require('./package.json').version")-build${GITHUB_RUN_NUMBER}"
+          fi
+          echo "server_url=$SERVER_URL" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Serveur : $SERVER_URL — version : $VERSION"
+
+      - name: Construire le client web
+        env:
+          VITE_SERVER_URL: ${{ steps.config.outputs.server_url }}
+        run: npm run build -w client
+
+      - name: Créer le projet Android
+        working-directory: client
+        run: npx cap add android
+
+      - name: Générer les icônes et l'écran de démarrage
+        working-directory: client
+        run: npm run android:assets
+
+      - name: Synchroniser le client dans le projet Android
+        working-directory: client
+        run: npx cap sync android
+
+      - name: Numéroter le build
+        working-directory: client/android
+        run: |
+          sed -i -E "s/versionCode +[0-9]+/versionCode ${GITHUB_RUN_NUMBER}/" app/build.gradle
+          sed -i -E "s/versionName +\"[^\"]*\"/versionName \"${{ steps.config.outputs.version }}\"/" app/build.gradle
+          # Affiché pour que le numéro effectivement retenu soit visible dans les logs, au cas
+          # où un futur gabarit Capacitor écrirait ces lignes autrement.
+          grep -E 'versionCode|versionName' app/build.gradle
+
+      # Deux chemins, selon qu'une clé de signature est configurée ou non. Sans clé, un APK
+      # de release ne serait pas installable du tout, donc on retombe sur du debug — voir le
+      # README pour la mise en place de la clé (recommandée : elle seule permet d'installer
+      # un nouveau build par-dessus l'ancien sans désinstaller).
+      - name: Construire l'APK signé
+        if: env.KEYSTORE_B64 != ''
+        working-directory: client/android
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/keystore.jks"
+          ./gradlew --no-daemon assembleRelease \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/keystore.jks" \
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+
+      - name: Construire l'APK de debug
+        if: env.KEYSTORE_B64 == ''
+        working-directory: client/android
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Renommer l'APK
+        id: apk
+        run: |
+          APK="$(find client/android/app/build/outputs/apk -name '*.apk' | head -n1)"
+          if [ -z "$APK" ]; then echo "::error::Aucun APK produit."; exit 1; fi
+          NAME="le-casse-${{ steps.config.outputs.version }}.apk"
+          cp "$APK" "$NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          ls -lh "$NAME"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.name }}
+          path: ${{ steps.apk.outputs.name }}
+          if-no-files-found: error
+
+      - name: Attacher l'APK à la release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "${{ steps.apk.outputs.name }}" --generate-notes || gh release upload "$GITHUB_REF_NAME" "${{ steps.apk.outputs.name }}" --clobber

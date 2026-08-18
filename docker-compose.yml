@@ -1,0 +1,24 @@
+# Le jeu tient en un seul conteneur : le serveur Express sert à la fois le client web et
+# Socket.IO, et garde les salons en mémoire (rien à persister, aucun volume).
+#
+# Il ne publie qu'un port sur l'hôte, donc il cohabite sans rien demander avec les autres
+# conteneurs de la machine — il suffit que HOST_PORT soit libre.
+services:
+  le-casse:
+    build: .
+    image: le-casse:latest
+    container_name: le-casse
+    restart: unless-stopped
+    ports:
+      - '${HOST_PORT:-3001}:3001'
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      # Vide = toutes les origines sont acceptées (voir le commentaire dans server/src/index.ts).
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3001/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
