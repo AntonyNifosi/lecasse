@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { HAND_CATEGORIES, ROUND_ORDER, type GuessGate, type HandCategory, type Rank } from '@thegang/shared';
+import { getCardById, HAND_CATEGORIES, ROUND_ORDER, type GuessGate, type HandCategory, type Rank } from '@thegang/shared';
 import { revealNext, submitGuess } from '../actions';
 import { GameMenu } from '../components/GameMenu';
 import { PlayingCard } from '../components/PlayingCard';
@@ -13,16 +12,18 @@ function guessLabel(guessType: 'category' | 'rank', value: HandCategory | Rank):
   return guessType === 'category' ? HAND_CATEGORY_LABELS[value as HandCategory] : rankLabel(value as Rank);
 }
 
-function GuessPrompt({ guessType, onVoted }: { guessType: 'category' | 'rank'; onVoted: (value: HandCategory | Rank) => void }) {
+function GuessPrompt({ guessType, cardName }: { guessType: 'category' | 'rank'; cardName?: string }) {
   function vote(value: HandCategory | Rank) {
     if (guessType === 'category') submitGuess({ guessCategory: value as HandCategory });
     else submitGuess({ guessRank: value as Rank });
-    onVoted(value);
   }
 
   return (
     <div className="stack">
       <p style={{ fontWeight: 700, color: 'var(--fg)' }}>
+        {/* Named after the card that opened it: two malus cards can be in play at once
+            (Pro/Gangster), and two unexplained polls at the same time read like a bug. */}
+        {cardName && <span className="badge">{cardName}</span>}{' '}
         {guessType === 'category' ? 'Votez pour sa catégorie de main :' : "Votez pour le rang d'une de ses cartes :"}
       </p>
       <div className="row" style={{ flexWrap: 'wrap' }}>
@@ -51,15 +52,6 @@ export function ShowdownScreen({ onContinue }: Props) {
   const game = room?.game;
   const sd = game?.showdown;
 
-  // Purely local: which way I voted for each gate type. Never derived from the server,
-  // since individual votes aren't broadcast (only the tallied result is, once everyone's
-  // voted) — this just lets my own screen switch from "vote" to "waiting" right away.
-  const [myVotes, setMyVotes] = useState<Partial<Record<'category' | 'rank', HandCategory | Rank>>>({});
-  const targetKey = sd?.guessGates.map((g) => g.targetPlayerId).join(',');
-  useEffect(() => {
-    setMyVotes({});
-  }, [targetKey]);
-
   if (!room || !game || !sd) return null;
 
   const nextIndex = sd.revealed.length;
@@ -70,6 +62,15 @@ export function ShowdownScreen({ onContinue }: Props) {
   const gateBlocking = pendingGates.length > 0;
   const iAmTarget = pendingGates[0]?.targetPlayerId === myPlayerId;
   const iAmNext = nextPlayerId === myPlayerId;
+
+  /** Which active malus card opened a given guess, so each poll can say where it comes from. */
+  function gateCardName(gate: GuessGate): string | undefined {
+    for (const ac of game!.activeCards) {
+      const def = getCardById(ac.cardId);
+      if (def?.effect.kind === 'blindGuessGate' && def.effect.guess === gate.guessType) return def.name;
+    }
+    return undefined;
+  }
 
   return (
     <div className="table-screen">
@@ -122,6 +123,20 @@ export function ShowdownScreen({ onContinue }: Props) {
           );
         }}
         renderSeatExtra={(player) => {
+          // While the group is guessing, every seat shows where that player stands — around
+          // a real table this gets talked through out loud, so it's shown as it's cast.
+          if (gateBlocking && player.id !== nextPlayerId) {
+            return (
+              <span className="table-seat-showdown">
+                {pendingGates
+                  .map((g) => {
+                    const vote = g.votes[player.id];
+                    return vote === undefined ? '…' : guessLabel(g.guessType, vote);
+                  })
+                  .join(' · ')}
+              </span>
+            );
+          }
           const entry = sd.revealed.find((r) => r.playerId === player.id);
           if (!entry) return null;
           const resolvedGuesses = sd.guessGates.filter(
@@ -150,21 +165,18 @@ export function ShowdownScreen({ onContinue }: Props) {
             <p className="muted center">Le reste du gang doit deviner avant que vous ne révéliez votre main…</p>
           ) : (
             <div className="stack">
-              {pendingGates.map((gate) =>
-                myVotes[gate.guessType] !== undefined ? (
+              {pendingGates.map((gate) => {
+                const myVote = myPlayerId ? gate.votes[myPlayerId] : undefined;
+                return myVote !== undefined ? (
                   <p key={gate.guessType} className="muted center">
-                    Vous avez voté{' '}
-                    <strong style={{ color: 'var(--fg)' }}>{guessLabel(gate.guessType, myVotes[gate.guessType] as HandCategory | Rank)}</strong>{' '}
-                    — en attente des autres…
+                    <span className="badge">{gateCardName(gate)}</span> Vous avez voté{' '}
+                    <strong style={{ color: 'var(--fg)' }}>{guessLabel(gate.guessType, myVote)}</strong> — en attente des
+                    autres…
                   </p>
                 ) : (
-                  <GuessPrompt
-                    key={gate.guessType}
-                    guessType={gate.guessType}
-                    onVoted={(value) => setMyVotes((prev) => ({ ...prev, [gate.guessType]: value }))}
-                  />
-                ),
-              )}
+                  <GuessPrompt key={gate.guessType} guessType={gate.guessType} cardName={gateCardName(gate)} />
+                );
+              })}
             </div>
           )
         ) : iAmNext ? (

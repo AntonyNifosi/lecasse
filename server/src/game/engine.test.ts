@@ -223,6 +223,12 @@ describe('engine — bonus/malus cards', () => {
     expect(() => engine.takeToken(room, bob, 1)).toThrow(GameError);
     expect(() => engine.releaseToken(room, alice)).toThrow(GameError);
 
+    // Alice can't switch to a different token either — that used to silently release her
+    // locked one as a side effect, leaving it marked locked with no holder (unreleasable
+    // *and* untakeable — dead for the rest of the round).
+    expect(() => engine.takeToken(room, alice, 2)).toThrow(GameError);
+    expect(room.game!.tokensByRound.white.holderByStars[1]).toBe(alice);
+
     // Unlocked stars still behave normally and the round can complete.
     engine.takeToken(room, bob, 2);
     engine.takeToken(room, carol, 3);
@@ -364,6 +370,52 @@ describe('engine — bonus/malus cards', () => {
     engine.revealNext(room, alice);
     engine.revealNext(room, bob);
     expect(() => engine.submitGuess(room, carol, 'twoPair')).toThrow(GameError);
+  });
+
+  it('unblocks a stuck vote once every remaining voter has dropped out, instead of waiting forever', () => {
+    winFirstHeist('alarme-silencieuse');
+    engine.nextHeist(room);
+    forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], COMMUNITY);
+    fastForwardToRedRound(room, [alice, bob, carol]);
+    claimRound(room, [
+      { playerId: alice, stars: 1 },
+      { playerId: bob, stars: 2 },
+      { playerId: carol, stars: 3 },
+    ]);
+    engine.revealNext(room, alice);
+    engine.revealNext(room, bob);
+
+    engine.submitGuess(room, alice, 'trips'); // bob is the only voter left; he never answers
+    rooms.markDisconnected(room, bob);
+    expect(room.game!.showdown!.guessGates[0].resolved).toBe(false); // still waiting on refresh
+
+    engine.refreshGuessGates(room);
+    expect(room.game!.showdown!.guessGates[0].resolved).toBe(true);
+    expect(room.game!.showdown!.guessGates[0].finalGuess).toBe('trips'); // alice's lone vote stands
+    engine.revealNext(room, carol); // no longer stuck
+  });
+
+  it('skips a guess with no vote at all, rather than failing the heist on it', () => {
+    winFirstHeist('alarme-silencieuse');
+    engine.nextHeist(room);
+    forceDeal(room, [WEAK_HAND, MID_HAND, STRONG_HAND], COMMUNITY);
+    fastForwardToRedRound(room, [alice, bob, carol]);
+    claimRound(room, [
+      { playerId: alice, stars: 1 },
+      { playerId: bob, stars: 2 },
+      { playerId: carol, stars: 3 },
+    ]);
+    engine.revealNext(room, alice);
+    engine.revealNext(room, bob);
+
+    rooms.markDisconnected(room, alice);
+    rooms.markDisconnected(room, bob);
+    engine.refreshGuessGates(room);
+
+    expect(room.game!.showdown!.guessGates[0].resolved).toBe(true);
+    expect(room.game!.showdown!.guessGates[0].correct).toBe(true); // no one left to be wrong
+    engine.revealNext(room, carol);
+    expect(room.game!.showdown!.failed).toBe(false);
   });
 });
 

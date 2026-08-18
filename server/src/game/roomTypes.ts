@@ -1,4 +1,4 @@
-import type { ActiveCardState, Card, GameState, HandCategory, Rank, RoomSettings, RoomStatus } from '@thegang/shared';
+import type { ActiveCardState, Card, GameState, RoomSettings, RoomStatus } from '@thegang/shared';
 
 export interface InternalPlayer {
   id: string;
@@ -14,9 +14,6 @@ export interface InternalPlayer {
 
 export interface InternalGameState extends GameState {
   deck: Card[];
-  // playerId -> their vote, keyed by which gate (category/rank) it's for. Never sent to
-  // clients — only the tallied result (game.showdown.guessGates[].finalGuess) is public.
-  guessVotes: Partial<Record<'category' | 'rank', Record<string, HandCategory | Rank>>> | null;
 }
 
 export interface RoomInternal {

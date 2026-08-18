@@ -23,7 +23,7 @@ function toPublicPlayer(player: InternalPlayer): PlayerPublic {
 }
 
 function toPublicGame(game: InternalGameState): GameState {
-  const { deck: _deck, guessVotes: _guessVotes, ...publicGame } = game;
+  const { deck: _deck, ...publicGame } = game;
   return publicGame;
 }
 

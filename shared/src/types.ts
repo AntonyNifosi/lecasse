@@ -65,9 +65,12 @@ export interface GuessGate {
   resolved: boolean;
   correct: boolean | null;
   // The group's final answer once every eligible voter has voted (majority, random
-  // tie-break). Individual votes are never broadcast, to avoid groupthink — only the
-  // resolved outcome is public.
+  // tie-break).
   finalGuess: HandCategory | Rank | null;
+  // Each voter's own answer, playerId -> vote, shown live on their seat: around a real
+  // table the group talks this through out loud, so hiding who thinks what only made the
+  // wait opaque. Never includes the player being guessed about — they don't vote.
+  votes: Record<string, HandCategory | Rank>;
 }
 
 export interface ShowdownState {

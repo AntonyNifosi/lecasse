@@ -111,6 +111,7 @@ export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
     if (!room || !playerId) return;
     try {
       rooms.leaveRoom(room, playerId);
+      engine.refreshGuessGates(room);
       socket.leave(room.code);
       broadcastRoom(io, room);
     } catch (err) {
@@ -235,6 +236,9 @@ export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
     // race) — only the socket currently on record for the player may mark it disconnected.
     if (!player || player.socketId !== socket.id) return;
     rooms.markDisconnected(room, socket.data.playerId);
+    // Someone dropping out must not leave the rest of the gang waiting on a vote that can
+    // no longer be cast — the showdown would sit there forever.
+    engine.refreshGuessGates(room);
     broadcastRoom(io, room);
   });
 }

@@ -25,7 +25,7 @@ export function GameBoardScreen() {
   // Hooks must run unconditionally, before the early return below — rs is undefined
   // whenever game/roundColor aren't ready yet, which useTokenEvents already tolerates.
   const tokenEvents = useTokenEvents(rs);
-  const flights = useTokenFlights(tokenEvents, room?.players ?? [], roundColor ? ROUND_TOKEN_COLOR[roundColor] : '#888');
+  const { flights, inFlightStars } = useTokenFlights(tokenEvents, room?.players ?? [], roundColor ? ROUND_TOKEN_COLOR[roundColor] : '#888');
 
   // Collapsed by default each round — the seats already show current holdings, this modal
   // is just for catching up on who fumbled with what before you looked.
@@ -139,13 +139,20 @@ export function GameBoardScreen() {
           const isLocked = rs.lockedStars.includes(myCurrentStar);
           const isContested = contested.has(myCurrentStar);
           const flashSeq = flashSeqByStar.get(myCurrentStar);
+          // Kept in the DOM (not returned as null) even while its flight is still inbound,
+          // just invisible — so the flying ghost has a precise, stable spot to measure and
+          // land on, and the real token can take over the instant it arrives.
+          const landing = inFlightStars.has(myCurrentStar);
           return (
             <button
               key={flashSeq ?? 'idle'}
               type="button"
-              className={`token${isMine ? ' mine' : ''}${isLocked ? ' locked' : ''}${isContested ? ' contested' : ''}${flashSeq !== undefined ? ' token-flash' : ''}`}
+              data-token-slot={player.id}
+              className={`token${isMine ? ' mine' : ''}${isLocked ? ' locked' : ''}${isContested ? ' contested' : ''}${flashSeq !== undefined ? ' token-flash' : ''}${landing ? ' token-landing' : ''}`}
               style={{ background: ROUND_TOKEN_COLOR[roundColor], borderColor: player.colorTag, position: 'relative' }}
-              disabled={isLocked && !isMine}
+              // Locked means stuck with its owner for the round — nobody can act on it,
+              // not even the owner switching away from it (see engine's takeToken).
+              disabled={isLocked || landing}
               onClick={() => (isMine ? releaseToken() : takeToken(myCurrentStar))}
             >
               {myCurrentStar}
@@ -164,7 +171,10 @@ export function GameBoardScreen() {
               <div className="token-row">
                 {rs.starsAvailable.map((star) => {
                   const holderId = rs.holderByStars[star];
-                  if (holderId) {
+                  // Also holds the neutral placeholder while a release is still in flight
+                  // back to the pool — otherwise this slot would flip to "ready to claim"
+                  // before the ghost carrying it has actually arrived.
+                  if (holderId || inFlightStars.has(star)) {
                     // Claimed — it now lives at its holder's seat; keep this slot as an
                     // empty anchor (data-star) so the flight animation has a stable "pool
                     // position" to fly to/from later, without being clickable here anymore.
@@ -213,9 +223,12 @@ export function GameBoardScreen() {
             top: f.top,
             background: f.color,
             borderColor: f.ringColor,
+            animationDuration: `${f.durationMs}ms`,
             // @ts-expect-error -- custom properties aren't in React's CSSProperties type
             '--dx': `${f.dx}px`,
             '--dy': `${f.dy}px`,
+            '--arc': `${f.arc}px`,
+            '--spin': `${f.spin}deg`,
           }}
         >
           {f.label}

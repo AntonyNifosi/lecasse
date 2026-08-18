@@ -1168,19 +1168,46 @@ p {
   color: #14100a;
   pointer-events: none;
   z-index: 60;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-  animation: tokenFlight 0.45s ease-out forwards;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+  /* Duration is set per-flight inline (further trips take a bit longer) — this is just a
+     fallback. No opacity change: the ghost stays fully solid the entire trip, so it reads
+     as the token actually travelling rather than a mark that fades in and out. The real
+     token at both ends stays hidden (see .token-landing) for exactly this long, so there's
+     never a moment where a "landed" token and the still-travelling ghost are both visible.
+     Overall easing lives on the two keyframes below, not here (see the comment on 50%) —
+     this shorthand's "linear" is only a harmless fallback. */
+  animation: tokenFlight 0.45s linear forwards;
 }
 
 @keyframes tokenFlight {
-  from {
-    transform: translate(0, 0);
-    opacity: 1;
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    /* Eases INTO the midpoint below rather than resetting there: a timing-function set on
+       a keyframe governs the segment leading OUT of it, so pairing ease-in here with
+       ease-out on 50% keeps velocity continuous through the middle — ease-in-out on both
+       halves independently (the obvious-looking but wrong way to do this) has each half
+       decelerate into, then re-accelerate out of, the 50% mark, which reads as the token
+       visibly stalling mid-flight instead of moving through it. */
+    animation-timing-function: ease-in;
   }
-  to {
-    transform: translate(var(--dx), var(--dy));
-    opacity: 0;
+  /* A short hop rather than a straight slide: bows up and out by --arc at the midpoint
+     (real screen "up" is negative Y), grows slightly as if lifting off the felt, and tilts
+     toward the direction of travel (--spin) — settling flat again on arrival. */
+  50% {
+    transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.5 - var(--arc, 20px))) scale(1.18) rotate(var(--spin, 8deg));
+    animation-timing-function: ease-out;
   }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(1) rotate(0deg);
+  }
+}
+
+/* Keeps a landing token's real element in the DOM (see GameBoardScreen's renderToken) —
+   invisible and inert while its flight is still inbound, so the ghost above has a precise,
+   stable spot to land on and there's no flash of "already arrived" before it gets there. */
+.token.token-landing {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Token claim/steal/contested effects */

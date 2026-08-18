@@ -188,7 +188,6 @@ function startHeist(room: RoomInternal, activeCards: ActiveCardState[]): SideEff
     showdown: null,
     lastResult: null,
     deck,
-    guessVotes: null,
   };
   room.game = game;
 
@@ -324,11 +323,11 @@ function beginShowdown(room: RoomInternal, game: InternalGameState, cardDefs: Bo
           resolved: false,
           correct: null,
           finalGuess: null,
+          votes: {},
         });
       }
     }
   }
-  game.guessVotes = guessGates.length > 0 ? {} : null;
   game.showdown = { order, revealed: [], failed: false, guessGates };
   game.currentRound = 'showdown';
 }
@@ -347,6 +346,14 @@ export function takeToken(room: RoomInternal, playerId: string, stars: number): 
   if (!rs.starsAvailable.includes(stars)) throw new GameError('TOKEN_UNAVAILABLE', "Ce jeton n'existe pas dans cette partie.");
   if (rs.holderByStars[stars] === playerId) return [];
   if (rs.lockedStars.includes(stars)) throw new GameError('TOKEN_LOCKED', 'Ce jeton est verrouillé.');
+
+  // "Locked" means stuck with its owner for the rest of the round — switching to a
+  // different token would otherwise silently abandon it below, leaving it marked locked
+  // forever with no holder: neither releasable nor takeable by anyone, dead for the round.
+  const currentlyHeld = rs.starsAvailable.find((s) => rs.holderByStars[s] === playerId);
+  if (currentlyHeld !== undefined && rs.lockedStars.includes(currentlyHeld)) {
+    throw new GameError('TOKEN_LOCKED', 'Votre jeton actuel est verrouillé, vous ne pouvez pas en changer.');
+  }
 
   const seized = rs.holderByStars[stars];
   if (seized) rs.history.push({ stars, playerId: seized, action: 'release' });
@@ -457,10 +464,54 @@ function tallyVotes<T extends string | number>(votes: T[]): T {
   return topChoices.length === 1 ? topChoices[0] : pickRandom(topChoices);
 }
 
+/** Everyone still connected except the player being guessed about. Someone who has dropped
+ * out can never cast a vote, so counting them would leave the whole showdown waiting on an
+ * answer that is never coming. */
+function eligibleVoters(room: RoomInternal, gate: GuessGate) {
+  return room.players.filter((p) => p.id !== gate.targetPlayerId && p.connected);
+}
+
+/** Closes a guess once nobody who could still answer is missing. Votes already cast count
+ * even if that player has since dropped out. */
+function tryResolveGate(room: RoomInternal, game: InternalGameState, sd: ShowdownState, gate: GuessGate): void {
+  if (gate.resolved) return;
+  if (eligibleVoters(room, gate).some((p) => gate.votes[p.id] === undefined)) return;
+
+  const cast = Object.values(gate.votes);
+  gate.resolved = true;
+  // Nobody was left to answer at all: skip the guess rather than fail the heist on it —
+  // the group never got the chance to be wrong.
+  if (cast.length === 0) {
+    gate.finalGuess = null;
+    gate.correct = true;
+    return;
+  }
+
+  const finalGuess = tallyVotes(cast);
+  const target = getPlayer(room, gate.targetPlayerId);
+  const correct =
+    gate.guessType === 'category'
+      ? finalGuess === evaluateBestHand([...target.holeCards, ...game.communityCards]).category
+      : target.holeCards.some((c) => c.rank === finalGuess);
+
+  gate.finalGuess = finalGuess;
+  gate.correct = correct;
+  if (!correct) sd.failed = true;
+}
+
+/** Re-checks pending guesses after the room's roster changes, so a player leaving mid-vote
+ * can't strand everyone else waiting for them. */
+export function refreshGuessGates(room: RoomInternal): void {
+  const game = room.game;
+  const sd = game?.showdown;
+  if (!game || !sd || game.currentRound !== 'showdown') return;
+  for (const gate of sd.guessGates) tryResolveGate(room, game, sd, gate);
+}
+
 export function submitGuess(room: RoomInternal, playerId: string, guessCategory?: HandCategory, guessRank?: Rank): void {
   const game = requireGame(room);
   const sd = game.showdown;
-  if (game.currentRound !== 'showdown' || !sd || !game.guessVotes) {
+  if (game.currentRound !== 'showdown' || !sd) {
     throw new GameError('INVALID_STATE', "Aucune devinette n'est attendue actuellement.");
   }
   const guessType: 'category' | 'rank' = guessCategory !== undefined ? 'category' : 'rank';
@@ -471,28 +522,9 @@ export function submitGuess(room: RoomInternal, playerId: string, guessCategory?
   const vote = guessType === 'category' ? guessCategory : guessRank;
   if (vote === undefined) throw new GameError('INVALID_STATE', 'Devinette invalide.');
 
-  if (!game.guessVotes[guessType]) game.guessVotes[guessType] = {};
-  const votesForType = game.guessVotes[guessType] as Record<string, HandCategory | Rank>;
-  votesForType[playerId] = vote;
-
-  // Every player except the target gets a vote — a player may change their mind and
-  // vote again before the group's answer is locked in. Only tally once everyone (still
-  // just the ones already revealed, since the target is always last) has voted.
-  const eligibleVoters = room.players.filter((p) => p.id !== gate.targetPlayerId);
-  const allVoted = eligibleVoters.every((p) => votesForType[p.id] !== undefined);
-  if (!allVoted) return;
-
-  const finalGuess = tallyVotes(Object.values(votesForType));
-  const target = getPlayer(room, gate.targetPlayerId);
-  const correct =
-    guessType === 'category'
-      ? finalGuess === evaluateBestHand([...target.holeCards, ...game.communityCards]).category
-      : target.holeCards.some((c) => c.rank === finalGuess);
-
-  gate.finalGuess = finalGuess;
-  gate.resolved = true;
-  gate.correct = correct;
-  if (!correct) sd.failed = true;
+  // A player may change their mind and vote again right up until the group's answer locks in.
+  gate.votes[playerId] = vote;
+  tryResolveGate(room, game, sd, gate);
 }
 
 // ---------------------------------------------------------------------------
