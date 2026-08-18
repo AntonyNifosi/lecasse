@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useReducer, type Dispatch, type ReactNode } from 'react';
-import type { Card, PlayerPrivate, RoomPublicState } from '@thegang/shared';
+import type { Card, EmoteId, PlayerPrivate, RoomPublicState } from '@thegang/shared';
 import { rejoinRoom } from '../actions';
 import { clearSession, loadSession } from '../session';
 import { socket } from '../socket';
@@ -18,6 +18,10 @@ export interface GameState {
   myHoleCards: Card[];
   lastError: { code: string; message: string } | null;
   notifications: Notification[];
+  // playerId -> their latest reaction. Never cleared on a timer — seq changing re-keys the
+  // bubble that renders it (see Table/Seat), which restarts and then holds its own CSS
+  // fade-out, the same trick already used for the token-steal shake.
+  emotes: Record<string, { emoteId: EmoteId; seq: number }>;
 }
 
 type Action =
@@ -30,6 +34,7 @@ type Action =
   | { type: 'DISMISS_NOTIFICATION'; id: string }
   | { type: 'ERROR'; code: string; message: string }
   | { type: 'CLEAR_ERROR' }
+  | { type: 'EMOTE_RECEIVED'; playerId: string; emoteId: EmoteId; seq: number }
   | { type: 'LEFT_ROOM' };
 
 const initialState: GameState = {
@@ -39,6 +44,7 @@ const initialState: GameState = {
   myHoleCards: [],
   lastError: null,
   notifications: [],
+  emotes: {},
 };
 
 function reducer(state: GameState, action: Action): GameState {
@@ -61,6 +67,8 @@ function reducer(state: GameState, action: Action): GameState {
       return { ...state, lastError: { code: action.code, message: action.message } };
     case 'CLEAR_ERROR':
       return { ...state, lastError: null };
+    case 'EMOTE_RECEIVED':
+      return { ...state, emotes: { ...state.emotes, [action.playerId]: { emoteId: action.emoteId, seq: action.seq } } };
     case 'LEFT_ROOM':
       return { ...initialState, connection: state.connection };
     default:
@@ -110,6 +118,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const onInfo = (data: { message: string; card?: Card }) =>
       dispatch({ type: 'NOTIFY', notification: { id: crypto.randomUUID(), message: data.message, card: data.card } });
     const onError = (data: { code: string; message: string }) => dispatch({ type: 'ERROR', code: data.code, message: data.message });
+    const onEmote = (data: { playerId: string; emoteId: EmoteId; seq: number }) =>
+      dispatch({ type: 'EMOTE_RECEIVED', playerId: data.playerId, emoteId: data.emoteId, seq: data.seq });
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
@@ -118,6 +128,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.on('card:privatePeek', onPeek);
     socket.on('card:privateInfo', onInfo);
     socket.on('error', onError);
+    socket.on('player:emoteReceived', onEmote);
 
     return () => {
       socket.off('connect', onConnect);
@@ -127,6 +138,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       socket.off('card:privatePeek', onPeek);
       socket.off('card:privateInfo', onInfo);
       socket.off('error', onError);
+      socket.off('player:emoteReceived', onEmote);
     };
   }, []);
 

@@ -36,6 +36,20 @@ export const VAULTS_TO_WIN = 3;
 export const ALARMS_TO_LOSE = 3;
 export const BASE_HOLE_CARDS = 2;
 
+// The game bans talking about your cards, so a wordless reaction is the one legal way to
+// visibly respond to a reveal or a risky token grab — this is meant to support that, not to
+// become a chat feature, hence a closed, original set rather than free text or arbitrary emoji.
+export const EMOTES = [
+  { id: 'wahou', emoji: '😮', label: 'Wahou' },
+  { id: 'content', emoji: '😄', label: 'Content' },
+  { id: 'triste', emoji: '😢', label: 'Triste' },
+  { id: 'rire', emoji: '😂', label: 'Mort de rire' },
+  { id: 'stress', emoji: '😰', label: 'Stress' },
+  { id: 'suspicion', emoji: '🤨', label: 'Suspicion' },
+] as const;
+export type EmoteId = (typeof EMOTES)[number]['id'];
+export const EMOTE_COOLDOWN_MS = 2500;
+
 export interface TokenHistoryEntry {
   stars: number;
   playerId: string;
@@ -157,4 +171,5 @@ export type ErrorCode =
   | 'REJOIN_FAILED'
   | 'GUESS_PENDING'
   | 'GUESS_NOT_ALLOWED'
-  | 'NOT_YOUR_TURN';
+  | 'NOT_YOUR_TURN'
+  | 'EMOTE_RATE_LIMITED';

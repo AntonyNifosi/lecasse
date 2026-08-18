@@ -10,6 +10,7 @@ export interface InternalPlayer {
   isHost: boolean;
   disconnectedAt: number | null;
   holeCards: Card[];
+  lastEmoteAt: number | null;
 }
 
 export interface InternalGameState extends GameState {

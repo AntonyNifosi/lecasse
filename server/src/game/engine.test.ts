@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { VAULTS_TO_WIN, getCardById } from '@thegang/shared';
+import { EMOTE_COOLDOWN_MS, VAULTS_TO_WIN, getCardById } from '@thegang/shared';
 import type { Card } from '@thegang/shared';
 import { createShuffledDeck } from './deck';
 import * as engine from './engine';
@@ -416,6 +416,42 @@ describe('engine — bonus/malus cards', () => {
     expect(room.game!.showdown!.guessGates[0].correct).toBe(true); // no one left to be wrong
     engine.revealNext(room, carol);
     expect(room.game!.showdown!.failed).toBe(false);
+  });
+});
+
+describe('rooms — emotes', () => {
+  let room: RoomInternal;
+  let alice: string;
+  let bob: string;
+
+  beforeEach(() => {
+    const created = rooms.createRoom('Alice', '#f00');
+    room = created.room;
+    alice = created.player.id;
+    bob = rooms.joinRoom(room, 'Bob', '#0f0').id;
+  });
+
+  it('rejects a second emote from the same player within the cooldown window', () => {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    try {
+      rooms.sendEmote(room, alice, 'wahou');
+      expect(() => rooms.sendEmote(room, alice, 'content')).toThrow(GameError);
+
+      // Someone else is never blocked by alice's own cooldown.
+      expect(() => rooms.sendEmote(room, bob, 'wahou')).not.toThrow();
+
+      nowSpy.mockReturnValue(1_000_000 + EMOTE_COOLDOWN_MS - 1);
+      expect(() => rooms.sendEmote(room, alice, 'content')).toThrow(GameError);
+
+      nowSpy.mockReturnValue(1_000_000 + EMOTE_COOLDOWN_MS);
+      expect(() => rooms.sendEmote(room, alice, 'content')).not.toThrow();
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  it('rejects an emote id that is not in the known set', () => {
+    expect(() => rooms.sendEmote(room, alice, 'not-a-real-emote')).toThrow(GameError);
   });
 });
 

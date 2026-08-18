@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getCardById, VAULTS_TO_WIN, type RoundColor } from '@thegang/shared';
 import { releaseToken, takeToken } from '../actions';
 import { Avatar } from '../components/Avatar';
+import { EmotePicker } from '../components/EmotePicker';
 import { GameMenu } from '../components/GameMenu';
 import { HandRankingModal } from '../components/HandRankingModal';
 import { PlayingCard } from '../components/PlayingCard';
@@ -15,7 +16,7 @@ import { ROUND_LABELS, ROUND_TOKEN_COLOR } from '../theme';
 const ROUND_SEQUENCE: RoundColor[] = ['white', 'yellow', 'orange', 'red'];
 
 export function GameBoardScreen() {
-  const { room, myPlayerId, myHoleCards } = useGameState();
+  const { room, myPlayerId, myHoleCards, emotes } = useGameState();
   const [showHelp, setShowHelp] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showActiveCards, setShowActiveCards] = useState(false);
@@ -76,6 +77,7 @@ export function GameBoardScreen() {
               🎴 {activeCards.length}
             </button>
           )}
+          <EmotePicker />
           <GameMenu />
           <button type="button" className="btn btn-ghost" onClick={() => setShowHelp(true)}>
             Aide
@@ -108,6 +110,7 @@ export function GameBoardScreen() {
         myPlayerId={myPlayerId}
         hyperactivePlayerIds={hyperactive}
         seatFlashSeq={seatFlashSeq}
+        emotes={emotes}
         renderHoleCards={(player, isMe) =>
           isMe ? (
             myHoleCards.map((c, i) => <PlayingCard key={i} card={c} />)

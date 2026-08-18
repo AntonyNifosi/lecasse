@@ -1088,6 +1088,51 @@ p {
   z-index: 1;
 }
 
+/* Wraps just the avatar (shared by Seat and MySeat) so a reaction bubble anchors precisely
+   above it regardless of whatever else is in the surrounding row — the seat figure or the
+   wider my-seat flex row aren't reliable anchors on their own. */
+.avatar-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.seat-emote {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  z-index: 4;
+  font-size: calc(var(--tsz, 1rem) * 1.3);
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  animation: emotePop 2.4s ease forwards;
+}
+
+/* Pops up with a little overshoot, holds, then drifts up and fades — held state (not
+   cleared from React state on a timer, see GameContext) is invisible, so it's harmless to
+   leave sitting there until the next reaction re-keys and restarts this. */
+@keyframes emotePop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.4);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -0.2rem) scale(1.2);
+  }
+  25% {
+    transform: translate(-50%, -0.2rem) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -0.2rem) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -0.8rem) scale(0.92);
+  }
+}
+
 /* A player's current-round token, pinned as a chip on the corner of their avatar once
    claimed (the pot keeps an empty slot behind — see .token-empty-slot). */
 .table-seat .token {
@@ -1295,4 +1340,42 @@ p {
 
 .table-seat.hyperactive .avatar {
   animation: emberPulse 1.6s ease-in-out infinite;
+}
+
+/* Emote picker (EmotePicker) — the reaction bubble itself is styled above, next to the
+   avatar rules it's anchored to. */
+
+.emote-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.emote-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.8rem 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--fg);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.emote-choice:active {
+  transform: scale(0.95);
+}
+
+.emote-choice-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.emote-choice-label {
+  font-size: 0.7rem;
+  color: var(--fg-muted);
 }

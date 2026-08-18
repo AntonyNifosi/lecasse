@@ -1,5 +1,6 @@
 import { getCardById, HAND_CATEGORIES, ROUND_ORDER, type GuessGate, type HandCategory, type Rank } from '@thegang/shared';
 import { revealNext, submitGuess } from '../actions';
+import { EmotePicker } from '../components/EmotePicker';
 import { GameMenu } from '../components/GameMenu';
 import { PlayingCard } from '../components/PlayingCard';
 import { Table } from '../components/Table';
@@ -48,7 +49,7 @@ interface Props {
 }
 
 export function ShowdownScreen({ onContinue }: Props) {
-  const { room, myPlayerId } = useGameState();
+  const { room, myPlayerId, emotes } = useGameState();
   const game = room?.game;
   const sd = game?.showdown;
 
@@ -79,12 +80,14 @@ export function ShowdownScreen({ onContinue }: Props) {
           <h2>L'abattage</h2>
           <p className="muted">Du jeton le moins étoilé au plus étoilé.</p>
         </div>
+        <EmotePicker />
         <GameMenu />
       </div>
 
       <Table
         players={room.players}
         myPlayerId={myPlayerId}
+        emotes={emotes}
         highlightPlayerId={allRevealed ? null : nextPlayerId}
         centerContent={
           <div className="card-row">

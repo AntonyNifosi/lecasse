@@ -18,6 +18,8 @@ interface SeatProps {
   /** Changes whenever this player just lost a token to a steal — re-keying the wrapper
    * below restarts the "seat-pip-flash-lost" shake even if the class name is unchanged. */
   flashSeq?: number;
+  /** A reaction bubble floating above the avatar, if this player has one active — see Table. */
+  emote?: ReactNode;
   /** Where on the oval's rim this seat sits (left/top percentages) — see Table. */
   style?: CSSProperties;
 }
@@ -26,7 +28,7 @@ interface SeatProps {
  * their two cards tucked behind it and their token pinned to its corner — so that a seat
  * never reaches far enough inward to crowd the community cards in the middle, however many
  * players are around the table. */
-export function Seat({ player, holeCards, revealed, badge, token, extra, hyperactive, highlighted, flashSeq, style }: SeatProps) {
+export function Seat({ player, holeCards, revealed, badge, token, extra, hyperactive, highlighted, flashSeq, emote, style }: SeatProps) {
   const classes = [
     'table-seat',
     hyperactive && 'hyperactive',
@@ -45,9 +47,10 @@ export function Seat({ player, holeCards, revealed, badge, token, extra, hyperac
         {!revealed && <div className="table-seat-cards">{holeCards}</div>}
         <span
           key={`avatar-${flashSeq ?? 'idle'}`}
-          className={flashSeq !== undefined ? 'seat-pip-flash-lost' : undefined}
+          className={`avatar-wrap${flashSeq !== undefined ? ' seat-pip-flash-lost' : ''}`}
         >
           <Avatar name={player.name} color={player.colorTag} />
+          {emote}
         </span>
         {token}
       </div>

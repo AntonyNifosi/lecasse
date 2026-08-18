@@ -1,7 +1,20 @@
 import type { CSSProperties, ReactNode } from 'react';
-import type { PlayerPublic } from '@thegang/shared';
+import { EMOTES, type EmoteId, type PlayerPublic } from '@thegang/shared';
 import { MySeat } from './MySeat';
 import { Seat } from './Seat';
+
+/** Renders a player's latest reaction as a floating bubble, keyed by seq so a repeat of the
+ * same emote still restarts the pop-in/fade-out animation (see .seat-emote). */
+function emoteBubble(entry: { emoteId: EmoteId; seq: number } | undefined): ReactNode {
+  if (!entry) return undefined;
+  const def = EMOTES.find((e) => e.id === entry.emoteId);
+  if (!def) return undefined;
+  return (
+    <span key={entry.seq} className="seat-emote" aria-hidden="true">
+      {def.emoji}
+    </span>
+  );
+}
 
 /** How far around the oval the opponents fan out, indexed by how many there are: one sits
  * dead center at the top, more spread toward the sides as there are more of them — past 90°
@@ -56,6 +69,8 @@ interface TableProps {
   highlightPlayerId?: string | null;
   /** playerId -> seq, for the momentary "just lost a token to a steal" shake. */
   seatFlashSeq?: Record<string, number>;
+  /** playerId -> their latest reaction, shown as a floating bubble above the avatar. */
+  emotes?: Record<string, { emoteId: EmoteId; seq: number }>;
 }
 
 /** An oval felt table: everyone else sits around its rim, the community cards and token pot
@@ -78,6 +93,7 @@ export function Table({
   hyperactivePlayerIds,
   highlightPlayerId,
   seatFlashSeq,
+  emotes,
 }: TableProps) {
   const me = players.find((p) => p.id === myPlayerId);
   const others = players.filter((p) => p.id !== myPlayerId);
@@ -97,6 +113,7 @@ export function Table({
           hyperactive={hyperactivePlayerIds?.has(player.id) ?? false}
           highlighted={player.id === highlightPlayerId}
           flashSeq={seatFlashSeq?.[player.id]}
+          emote={emoteBubble(emotes?.[player.id])}
           style={seatPosition(i, others.length)}
         />
       ))}
@@ -113,6 +130,7 @@ export function Table({
           hyperactive={hyperactivePlayerIds?.has(me.id) ?? false}
           highlighted={me.id === highlightPlayerId}
           flashSeq={seatFlashSeq?.[me.id]}
+          emote={emoteBubble(emotes?.[me.id])}
         />
       )}
     </div>

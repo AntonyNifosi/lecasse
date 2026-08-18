@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { MAX_PLAYERS, type CardMode } from '@thegang/shared';
+import { EMOTE_COOLDOWN_MS, EMOTES, MAX_PLAYERS, type CardMode } from '@thegang/shared';
 import { GameError } from './errors';
 import type { InternalPlayer, RoomInternal } from './roomTypes';
+
+const EMOTE_IDS: ReadonlySet<string> = new Set(EMOTES.map((e) => e.id));
 
 const rooms = new Map<string, RoomInternal>();
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/0/1, avoids ambiguity when read aloud
@@ -26,6 +28,7 @@ function makePlayer(name: string, colorTag: string, isHost: boolean): InternalPl
     isHost,
     disconnectedAt: null,
     holeCards: [],
+    lastEmoteAt: null,
   };
 }
 
@@ -120,6 +123,16 @@ export function markDisconnected(room: RoomInternal, playerId: string): void {
   player.connected = false;
   player.socketId = null;
   player.disconnectedAt = Date.now();
+}
+
+export function sendEmote(room: RoomInternal, playerId: string, emoteId: string): void {
+  if (!EMOTE_IDS.has(emoteId)) throw new GameError('INVALID_STATE', 'Émote inconnue.');
+  const player = getPlayer(room, playerId);
+  const now = Date.now();
+  if (player.lastEmoteAt !== null && now - player.lastEmoteAt < EMOTE_COOLDOWN_MS) {
+    throw new GameError('EMOTE_RATE_LIMITED', 'Attendez un peu avant de réagir à nouveau.');
+  }
+  player.lastEmoteAt = now;
 }
 
 export function touchRoom(room: RoomInternal): void {

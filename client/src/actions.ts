@@ -1,4 +1,4 @@
-import type { Ack, CardMode, HandCategory, Rank, RejoinAck } from '@thegang/shared';
+import type { Ack, CardMode, EmoteId, HandCategory, Rank, RejoinAck } from '@thegang/shared';
 import { socket } from './socket';
 
 function ensureConnected(): void {
@@ -58,4 +58,8 @@ export function nextHeist(): void {
 
 export function rematch(): void {
   socket.emit('game:rematch');
+}
+
+export function sendEmote(emoteId: EmoteId): void {
+  socket.emit('player:emote', { emoteId });
 }

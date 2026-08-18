@@ -15,6 +15,10 @@ import { getPlayerPrivate, toPublicState } from '../game/serialize';
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
 
+// Module-level (not per-connection): just needs to keep increasing across every emote from
+// every player so clients can key each one uniquely, not a real id — process-lifetime is fine.
+let emoteSeq = 0;
+
 function broadcastRoom(io: AppServer, room: RoomInternal): void {
   io.to(room.code).emit('room:state', toPublicState(room));
   for (const player of room.players) {
@@ -212,6 +216,18 @@ export function registerSocketHandlers(io: AppServer, socket: AppSocket): void {
       rooms.touchRoom(room);
       broadcastRoom(io, room);
       dispatchSideEffects(io, room, effects);
+    } catch (err) {
+      sendError(socket, err);
+    }
+  });
+
+  socket.on('player:emote', ({ emoteId }) => {
+    const room = currentRoom(socket);
+    if (!room || !socket.data.playerId) return;
+    try {
+      rooms.sendEmote(room, socket.data.playerId, emoteId);
+      emoteSeq += 1;
+      io.to(room.code).emit('player:emoteReceived', { playerId: socket.data.playerId, emoteId, seq: emoteSeq });
     } catch (err) {
       sendError(socket, err);
     }

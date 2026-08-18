@@ -1,4 +1,4 @@
-import type { Card, CardMode, ErrorCode, HandCategory, Rank, RoomPublicState, PlayerPrivate } from './types';
+import type { Card, CardMode, EmoteId, ErrorCode, HandCategory, Rank, RoomPublicState, PlayerPrivate } from './types';
 
 export interface AckOk {
   ok: true;
@@ -36,6 +36,7 @@ export interface ClientToServerEvents {
   'showdown:revealNext': () => void;
   'game:nextHeist': () => void;
   'game:rematch': () => void;
+  'player:emote': (payload: { emoteId: EmoteId }) => void;
 }
 
 export interface ServerToClientEvents {
@@ -43,6 +44,10 @@ export interface ServerToClientEvents {
   'player:private': (data: PlayerPrivate) => void;
   'card:privatePeek': (data: { aboutPlayerId: string; card: Card }) => void;
   'card:privateInfo': (data: { message: string; card?: Card }) => void;
+  // Purely transient — never stored in RoomPublicState, so a reconnect or a late joiner
+  // just doesn't see reactions that already happened, the same way they wouldn't have heard
+  // a real gasp around a real table.
+  'player:emoteReceived': (data: { playerId: string; emoteId: EmoteId; seq: number }) => void;
   error: (data: { code: ErrorCode; message: string }) => void;
 }
 
