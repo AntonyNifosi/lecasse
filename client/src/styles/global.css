@@ -301,7 +301,7 @@ p {
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: calc(var(--tsz, 1rem) * 1.1);
+  font-size: calc(var(--tsz, 1rem) * 1.35);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   flex-shrink: 0;
   line-height: 1;
@@ -315,7 +315,7 @@ p {
 .playing-card.small {
   width: calc(var(--tsz, 1rem) * 2.1);
   height: calc(var(--tsz, 1rem) * 2.9);
-  font-size: calc(var(--tsz, 1rem) * 0.8);
+  font-size: calc(var(--tsz, 1rem) * 0.95);
   border-radius: 6px;
   gap: 0.05rem;
 }
@@ -833,19 +833,30 @@ p {
   gap: 0.6rem;
 }
 
-/* The oval and everything placed around it. Takes whatever height is left over after the
-   header and my own seat have had theirs, and never less than --arena-min: below that the
-   .table-screen scrolls instead, so the oval can't squash to the point where the seats on
-   its rim would close in on the cards in its middle. */
+/* The oval and everything placed around it. Grows to fill whatever height is left over
+   after the header, capped at a coherent maximum so it doesn't just keep inflating on a
+   big desktop monitor — below --arena-min it scrolls instead, so the oval can't squash to
+   the point where the seats on its rim would close in on the cards in its middle. */
 .table-arena {
   position: relative;
-  /* Kept to a fixed oval proportion rather than stretched to fill whatever's left, so the
-     table reads as a table instead of an egg on tall screens — the leftover space becomes
-     margin above and below (margin: auto centers it). min-height still wins on very short
-     viewports, where .table-screen scrolls rather than letting the oval squash. */
-  width: 100%;
+  /* A definite width (100%, or width:auto stretched by the default flex align-items) fights
+     aspect-ratio the moment the OTHER axis also gets capped: whichever axis is pre-fixed
+     wins and the other just gets clipped, squashing the oval into a wide flat egg instead of
+     shrinking together — that's what actually happened here before this was measured rather
+     than eyeballed. Letting flex-grow size the height and deriving width from it via
+     aspect-ratio avoids that fight — but only stays correct if max-width and max-height are
+     themselves already in that same 62:100 ratio (935 = 580 * 100/62), so neither one can
+     bind alone and force a mismatch; verified by measurement at 6 viewport sizes from
+     1024x700 up to 1920x1900, including the tall-narrow shape that used to break it. */
+  align-self: center;
+  flex: 1;
+  width: auto;
+  max-width: min(100%, 580px);
+  max-height: min(100%, 935px);
   aspect-ratio: 62 / 100;
-  max-height: 100%;
+  /* The floor: below this, .table-screen scrolls instead of letting the oval keep shrinking
+     (see its own comment). Also stands in for the flex item's default min-height:auto, which
+     would otherwise fight flex-grow's shrinking here. */
   min-height: calc(var(--tsz, 1rem) * 20);
   margin: auto;
   /* The felt, the opponents and the center are all absolutely positioned, so my own seat is
@@ -908,8 +919,11 @@ p {
   position: absolute;
   left: 50%;
   /* `top` comes from Table (just under the lowest rim seat); the bottom edge clears my own
-     seat, and the content is centered in whatever band is left between the two. */
-  bottom: calc(var(--tsz, 1rem) * 4.6);
+     seat, and the content is centered in whatever band is left between the two. Sized for
+     my seat's tallest form (badge + extra line, both can show at once) rather than its
+     plainest — 4.6 was tuned before that and came up just short of my-seat's real height
+     once --tsz hits its own maximum on a large desktop screen. */
+  bottom: calc(var(--tsz, 1rem) * 5.5);
   transform: translateX(-50%);
   width: var(--center-w, 74%);
   display: flex;
@@ -925,7 +939,7 @@ p {
   width: calc((100% - var(--tsz, 1rem) * 0.88) / 5);
   height: auto;
   aspect-ratio: 5 / 7;
-  font-size: calc(var(--tsz, 1rem) * 0.75);
+  font-size: calc(var(--tsz, 1rem) * 0.95);
 }
 
 .table-center .card-row {
@@ -1080,7 +1094,7 @@ p {
   width: calc((var(--seat-w, calc(var(--tsz, 1rem) * 4.2)) - 0.15rem) / 2);
   height: auto;
   aspect-ratio: 5 / 7;
-  font-size: calc(var(--tsz, 1rem) * 0.5);
+  font-size: calc(var(--tsz, 1rem) * 0.65);
 }
 
 .table-seat .avatar {
