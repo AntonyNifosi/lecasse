@@ -153,7 +153,7 @@ export function GameBoardScreen() {
               type="button"
               data-token-slot={player.id}
               className={`token${isMine ? ' mine' : ''}${isLocked ? ' locked' : ''}${isContested ? ' contested' : ''}${flashSeq !== undefined ? ' token-flash' : ''}${landing ? ' token-landing' : ''}`}
-              style={{ background: ROUND_TOKEN_COLOR[roundColor], borderColor: player.colorTag, position: 'relative' }}
+              style={{ background: isLocked ? undefined : ROUND_TOKEN_COLOR[roundColor], borderColor: player.colorTag, position: 'relative' }}
               // Locked means stuck with its owner for the round — nobody can act on it,
               // not even the owner switching away from it (see engine's takeToken).
               disabled={isLocked || landing}

@@ -376,9 +376,22 @@ p {
   transform: scale(0.94);
 }
 
+/* Verrouille pour le reste du tour : la pastille passe au sombre, ce qui se lit d'un coup
+   d'oeil a l'autre bout de la table, la ou le cadenas seul demande de regarder. La couleur du
+   tour n'est plus posee en style inline dans ce cas (voir renderToken), sinon elle gagnerait
+   sur cette regle. Le lisere garde la couleur de son proprietaire : on doit toujours voir a
+   qui il est reste colle. */
 .token.locked {
   cursor: not-allowed;
-  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.35);
+  background: #14171c;
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 255, 255, 0.08),
+    inset 0 0 0 5px rgba(0, 0, 0, 0.5),
+    0 2px 5px rgba(0, 0, 0, 0.45);
+}
+
+.token.locked .token-stars {
+  color: rgba(244, 241, 232, 0.9);
 }
 
 .token.mine {

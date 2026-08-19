@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { RoundColor, RoundTokens } from '@thegang/shared';
 
 export interface TokenEvent {
@@ -23,7 +23,7 @@ export function useTokenEvents(rs: RoundTokens | undefined): TokenEvent[] {
   const seqRef = useRef(0);
   const [events, setEvents] = useState<TokenEvent[]>([]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!rs) return;
     const prev = prevRef.current;
     if (prev && prev.color === rs.color) {
