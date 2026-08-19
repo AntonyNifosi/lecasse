@@ -41,6 +41,17 @@ export function GameBoardScreen() {
   const currentIdx = ROUND_SEQUENCE.indexOf(roundColor);
   const contested = contestedStars(rs.history);
   const hyperactive = hyperactivePlayers(rs.history);
+  // Le jeton que le malus du tour collera a qui le prendra. Sombre des sa mise en jeu plutot
+  // qu'une fois pris : c'est un avertissement avant de s'engager, pas un constat apres coup.
+  // Meme selection que le moteur au moment de la prise (voir takeToken).
+  const lockableStars = new Set<number>();
+  if (rs.active) {
+    for (const card of activeCards) {
+      if (card.effect.kind === 'lockTokens' && (card.effect.rounds as RoundColor[]).includes(roundColor)) {
+        lockableStars.add(card.effect.selector === 'lowest' ? Math.min(...rs.starsAvailable) : Math.max(...rs.starsAvailable));
+      }
+    }
+  }
   const seatFlashSeq: Record<string, number> = {};
   for (const e of tokenEvents) {
     if (e.kind === 'steal' && e.fromPlayerId) seatFlashSeq[e.fromPlayerId] = e.seq;
@@ -141,6 +152,7 @@ export function GameBoardScreen() {
           if (myCurrentStar === undefined) return null;
           const isMine = player.id === myPlayerId;
           const isLocked = rs.lockedStars.includes(myCurrentStar);
+          const isLockable = lockableStars.has(myCurrentStar);
           const isContested = contested.has(myCurrentStar);
           const flashSeq = flashSeqByStar.get(myCurrentStar);
           // Kept in the DOM (not returned as null) even while its flight is still inbound,
@@ -152,8 +164,8 @@ export function GameBoardScreen() {
               key={flashSeq ?? 'idle'}
               type="button"
               data-token-slot={player.id}
-              className={`token${isMine ? ' mine' : ''}${isLocked ? ' locked' : ''}${isContested ? ' contested' : ''}${flashSeq !== undefined ? ' token-flash' : ''}${landing ? ' token-landing' : ''}`}
-              style={{ background: isLocked ? undefined : ROUND_TOKEN_COLOR[roundColor], borderColor: player.colorTag, position: 'relative' }}
+              className={`token${isMine ? ' mine' : ''}${isLocked ? ' locked' : ''}${isLockable ? ' lockable' : ''}${isContested ? ' contested' : ''}${flashSeq !== undefined ? ' token-flash' : ''}${landing ? ' token-landing' : ''}`}
+              style={{ background: isLocked || isLockable ? undefined : ROUND_TOKEN_COLOR[roundColor], borderColor: player.colorTag, position: 'relative' }}
               // Locked means stuck with its owner for the round — nobody can act on it,
               // not even the owner switching away from it (see engine's takeToken).
               disabled={isLocked || landing}
@@ -191,13 +203,14 @@ export function GameBoardScreen() {
                     );
                   }
                   const isContested = contested.has(star);
+                  const isLockable = lockableStars.has(star);
                   return (
                     <div key={star} className="token-slot" data-star={star}>
                       <button
                         key={flashSeqByStar.get(star) ?? 'idle'}
                         type="button"
-                        className={`token${isContested ? ' contested' : ''}${flashSeqByStar.has(star) ? ' token-flash' : ''}`}
-                        style={{ background: ROUND_TOKEN_COLOR[roundColor], borderColor: 'transparent', position: 'relative' }}
+                        className={`token${isLockable ? ' lockable' : ''}${isContested ? ' contested' : ''}${flashSeqByStar.has(star) ? ' token-flash' : ''}`}
+                        style={{ background: isLockable ? undefined : ROUND_TOKEN_COLOR[roundColor], borderColor: 'transparent', position: 'relative' }}
                         onClick={() => takeToken(star)}
                       >
                         <TokenStars count={star} />
