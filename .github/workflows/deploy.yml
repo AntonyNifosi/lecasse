@@ -1,0 +1,96 @@
+name: Déploiement du serveur
+
+# Déclenché par les mêmes tags que l'APK : une version publiée met à jour le serveur et
+# produit l'APK correspondant, sans qu'un commit de passage ne coupe une partie en cours.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Le déploiement n'attend pas l'APK : le serveur doit être à jour avant que quiconque
+    # installe la nouvelle version.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      # Le code part par SSH plutôt que par un `git pull` sur la machine : rien à installer
+      # côté serveur, et surtout aucun identifiant GitHub à y déposer pour un dépôt privé.
+      # Les fichiers de configuration de la machine (.env) ne sont pas dans l'archive et
+      # survivent donc à chaque déploiement.
+      - name: Envoyer et redémarrer
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/le-casse' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SSH_HOST:-}" ] || [ -z "${SSH_USER:-}" ] || [ -z "${SSH_KEY:-}" ]; then
+            echo "::error::Secrets manquants. Renseignez DEPLOY_HOST, DEPLOY_USER et DEPLOY_SSH_KEY (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          tar -czf /tmp/le-casse.tgz \
+            --exclude='./.git' \
+            --exclude='./node_modules' \
+            --exclude='*/node_modules' \
+            --exclude='./client/dist' \
+            --exclude='./client/android' \
+            --exclude='./client/assets' \
+            .
+
+          SSH="ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -p $SSH_PORT $SSH_USER@$SSH_HOST"
+          scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -P "$SSH_PORT" /tmp/le-casse.tgz "$SSH_USER@$SSH_HOST:/tmp/le-casse.tgz"
+          $SSH "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
+          set -euo pipefail
+          mkdir -p "$DEPLOY_PATH"
+          tar -xzf /tmp/le-casse.tgz -C "$DEPLOY_PATH"
+          rm -f /tmp/le-casse.tgz
+          cd "$DEPLOY_PATH"
+          if [ ! -f .env ]; then
+            echo "Aucun .env sur le serveur : création depuis .env.example — pensez à y mettre SITE_ADDRESS."
+            cp .env.example .env
+          fi
+          docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
+          docker image prune -f
+          docker compose -f docker-compose.yml -f docker-compose.https.yml ps
+          REMOTE
+
+      # Le déploiement n'est acquis que si le jeu répond vraiment, certificat compris.
+      - name: Vérifier que le serveur répond
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          if [ -z "${SITE_URL:-}" ]; then
+            echo "Variable SITE_URL absente : vérification ignorée."
+            exit 0
+          fi
+          for i in $(seq 1 10); do
+            if curl -fsS --max-time 10 "$SITE_URL/healthz"; then
+              echo; echo "Serveur en ligne sur $SITE_URL"
+              exit 0
+            fi
+            echo "pas encore prêt (tentative $i/10, le certificat peut mettre un moment la première fois)…"
+            sleep 12
+          done
+          echo "::error::$SITE_URL/healthz ne répond pas après deux minutes."
+          exit 1

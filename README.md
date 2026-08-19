@@ -102,17 +102,102 @@ navigateur comme APK. Deux limites à connaître :
   [`client/capacitor.config.ts`](client/capacitor.config.ts) (`allowMixedContent` +
   `cleartext`).
 
-Le jour où vous avez un nom de domaine pointant sur la machine, un reverse proxy avec
-certificat automatique suffit à passer en HTTPS — par exemple, avec Caddy :
+Le jour où un nom pointe sur la machine, le passage au HTTPS est prévu : voir la surcouche
+Caddy dans la section suivante. Il n'y a alors rien à changer côté serveur ; côté APK,
+retirez `allowMixedContent` et `cleartext` de `capacitor.config.ts` et reconstruisez avec la
+nouvelle adresse.
 
-```
-lecasse.exemple.fr {
-    reverse_proxy localhost:3001
-}
+## Déployer sur un serveur distant (Hetzner)
+
+Le déploiement part de GitHub sur un tag `v*` : le code est envoyé par SSH, l'image est
+reconstruite sur place et les conteneurs redémarrent. Une version publiée met donc à jour le
+serveur et produit l'APK correspondant, et rien ne bouge entre deux versions — un commit de
+passage ne coupe jamais une partie en cours.
+
+### 1. Faire pointer le nom sur le serveur
+
+Si le nom a d'abord servi à joindre une machine à la maison via un client DynDNS, **coupez ce
+client avant tout** : sur la Livebox, onglet DynDNS, supprimez l'entrée. Sinon la box
+continuera d'y republier l'adresse de la maison toutes les quelques minutes et écrasera ce
+que vous aurez mis.
+
+Ensuite, chez le fournisseur du nom (No-IP), passez l'enregistrement A sur l'IP du serveur.
+Une machine chez un hébergeur a une adresse fixe : le DNS dynamique n'a plus d'objet, un
+enregistrement statique suffit. Vérifiez avant d'aller plus loin :
+
+```bash
+nslookup lecasse.ddns.net
 ```
 
-Il n'y a alors plus rien à changer côté serveur ; côté APK, retirez `allowMixedContent` et
-`cleartext` de `capacitor.config.ts` et reconstruisez avec la nouvelle adresse.
+La réponse doit être l'IP du serveur. Le certificat HTTPS ne peut pas être délivré tant que
+ce n'est pas le cas.
+
+### 2. Préparer la machine
+
+Il faut Docker avec le plugin Compose, et les ports 80 et 443 ouverts — y compris dans le
+pare-feu de l'hébergeur s'il y en a un (Hetzner Cloud Firewall). Le port 80 sert à valider le
+certificat, même si tout le trafic finit en 443.
+
+```bash
+ssh utilisateur@serveur
+sudo mkdir -p /opt/le-casse && sudo chown $USER /opt/le-casse
+```
+
+Le premier déploiement crée un `.env` à partir de `.env.example`. Renseignez-y `SITE_ADDRESS`
+avec le nom du site (sans `http://`), puis relancez un déploiement.
+
+### 3. Donner à GitHub de quoi se connecter
+
+Créez une clé dédiée au déploiement, sans mot de passe — elle sert à une machine, pas à vous :
+
+```bash
+ssh-keygen -t ed25519 -f deploy_key -N "" -C "github-actions"
+ssh-copy-id -i deploy_key.pub utilisateur@serveur
+```
+
+Puis, dans **Settings → Secrets and variables → Actions** :
+
+| Type | Nom | Valeur |
+| --- | --- | --- |
+| Secret | `DEPLOY_HOST` | l'IP ou le nom du serveur |
+| Secret | `DEPLOY_USER` | l'utilisateur SSH |
+| Secret | `DEPLOY_SSH_KEY` | le contenu de `deploy_key` (la clé **privée**, en entier) |
+| Variable | `SITE_URL` | `https://lecasse.ddns.net` — sert à vérifier que le déploiement a pris |
+| Variable | `DEPLOY_PATH` | facultatif, `/opt/le-casse` par défaut |
+| Variable | `DEPLOY_PORT` | facultatif, `22` par défaut |
+
+Supprimez ensuite `deploy_key` de votre machine : GitHub en a une copie, et cette clé ouvre
+un accès au serveur.
+
+### 4. Déployer
+
+```bash
+git tag v1.2.0 && git push --tags
+```
+
+Le workflow **Déploiement du serveur** part, et le workflow **APK Android** avec lui. Le
+déploiement se termine par un appel à `/healthz` sur `SITE_URL` : tant que ça ne répond pas,
+il n'est pas considéré comme réussi. Le tout premier essai peut prendre une minute de plus,
+le temps que le certificat soit délivré.
+
+On peut aussi le lancer à la main depuis **Actions → Déploiement du serveur → Run workflow**.
+
+### Cohabitation et exploitation
+
+Le jeu n'occupe que 80 et 443 (Caddy) : tout autre service déjà en place sur la machine, sur
+ses propres ports, n'est pas concerné. Sur le serveur :
+
+```bash
+cd /opt/le-casse
+docker compose logs -f          # les deux fichiers sont pris en compte via COMPOSE_FILE
+docker compose ps
+```
+
+### Sans HTTPS
+
+Si les ports 80/443 ne sont pas disponibles, déployez sans la surcouche : retirez
+`-f docker-compose.https.yml` des deux commandes du workflow. Le jeu publie alors `HOST_PORT`
+et s'atteint en `http://adresse:port`, à brancher derrière le reverse proxy déjà en place.
 
 ## APK Android
 
@@ -128,7 +213,8 @@ modifier.
 ### Construire l'APK
 
 1. Dans le dépôt GitHub, **Settings → Secrets and variables → Actions → Variables**, créez
-   la variable `SERVER_URL` avec l'adresse publique du serveur (ex. `http://192.0.2.10:3001`).
+   la variable `SERVER_URL` avec l'adresse publique du serveur (ex. `https://lecasse.ddns.net`,
+   ou `http://192.0.2.10:3001` tant que le serveur n'a pas de certificat).
 2. Onglet **Actions → APK Android → Run workflow**. L'adresse peut aussi être saisie
    directement au lancement, ce qui prend le pas sur la variable.
 3. L'APK est en pièce jointe du run (section *Artifacts*), à récupérer et à installer sur le

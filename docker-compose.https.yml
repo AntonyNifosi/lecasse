@@ -1,0 +1,30 @@
+# Surcouche HTTPS, à utiliser en plus du fichier principal :
+#
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
+#
+# Le jeu n'expose alors plus aucun port directement : tout entre par Caddy, qui écoute sur 80
+# et 443 et sert le certificat de SITE_ADDRESS. Le port 80 doit rester ouvert même si tout le
+# trafic finit en 443 — c'est par là que Let's Encrypt valide le renouvellement.
+services:
+  le-casse:
+    ports: [] # plus rien en direct : tout passe par Caddy
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: le-casse-caddy
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      SITE_ADDRESS: '${SITE_ADDRESS:?SITE_ADDRESS manquant dans .env (ex lecasse.ddns.net)}'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Les certificats vivent ici : sans ce volume, chaque redémarrage en redemanderait un
+      # nouveau et finirait par heurter les quotas de Let's Encrypt.
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

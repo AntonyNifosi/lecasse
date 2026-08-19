@@ -1,0 +1,9 @@
+# Termine le HTTPS devant le jeu. Caddy obtient et renouvelle le certificat tout seul, à
+# condition que le nom pointe déjà sur cette machine et que le port 80 lui soit joignable
+# depuis l'extérieur : c'est par là que passe la validation.
+#
+# reverse_proxy relaie aussi les WebSocket sans configuration supplémentaire, ce dont
+# Socket.IO a besoin.
+{$SITE_ADDRESS} {
+	reverse_proxy le-casse:3001
+}
