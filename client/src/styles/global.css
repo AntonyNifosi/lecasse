@@ -1048,7 +1048,7 @@ p {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: calc(var(--tsz, 1rem) * 0.4);
+  gap: calc(var(--tsz, 1rem) * 0.22);
 }
 
 /* The five community cards share whatever width the center block has, however many players
@@ -1066,6 +1066,24 @@ p {
   width: 100%;
   gap: calc(var(--tsz, 1rem) * 0.22);
   flex-wrap: nowrap;
+}
+
+/* The same five cards, shown above the guess board while a vote is open — a reminder of
+   what's already on the table, not the main thing being looked at any more. Sized in --tsz
+   rather than as a fraction of the block (like the plain .card-row above): the guess board
+   needs the block at its narrowest to still clear the seats (see tableGeometry's CENTER_W),
+   and a percentage width would make these cards shrink right along with it instead of
+   staying a fixed, legible size. */
+.table-center .card-row-compact {
+  gap: calc(var(--tsz, 1rem) * 0.14);
+}
+
+.table-center .card-row-compact .playing-card {
+  width: calc(var(--tsz, 1rem) * 0.86);
+  height: calc(var(--tsz, 1rem) * 1.2);
+  font-size: calc(var(--tsz, 1rem) * 0.44);
+  border-radius: 4px;
+  flex: 0 1 auto;
 }
 
 /* Same idea as the cards above: the pot's chips share the center block's width and shrink
@@ -1581,7 +1599,7 @@ p {
   flex-wrap: wrap;
   justify-content: center;
   align-content: center;
-  gap: calc(var(--tsz, 1rem) * 0.2);
+  gap: calc(var(--tsz, 1rem) * 0.13);
   /* Room for the bet chips, which hang off their tile's corner (see .guess-zone-bets):
      without it a chip on the last row or an outer column spills past the board's own box
      and out over the felt. */
@@ -1609,8 +1627,8 @@ p {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: calc(var(--tsz, 1rem) * 0.04);
-  padding: calc(var(--tsz, 1rem) * 0.1) calc(var(--tsz, 1rem) * 0.16) calc(var(--tsz, 1rem) * 0.08);
+  gap: 0;
+  padding: calc(var(--tsz, 1rem) * 0.055) calc(var(--tsz, 1rem) * 0.16) calc(var(--tsz, 1rem) * 0.04);
   border: 1px solid rgba(224, 168, 62, 0.4);
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.2);

@@ -85,7 +85,17 @@ export function ShowdownScreen({ onContinue }: Props) {
         // taller band has no room for both.
         centerContent={
           displayGate && myPlayerId ? (
-            <GuessBoard gate={displayGate} players={room.players} myPlayerId={myPlayerId} interactive={displayGate === myOpenGate} />
+            <>
+              {/* The 5 cards stay on the table while the group votes — shrunk to a fixed,
+                  compact size (.card-row-compact) rather than the block's own width, since
+                  that width is already at its narrowest here to clear the seats. */}
+              <div className="card-row card-row-compact">
+                {game.communityCards.map((c, i) => (
+                  <PlayingCard key={i} card={c} />
+                ))}
+              </div>
+              <GuessBoard gate={displayGate} players={room.players} myPlayerId={myPlayerId} interactive={displayGate === myOpenGate} />
+            </>
           ) : (
             <div className="card-row">
               {game.communityCards.map((c, i) => (
