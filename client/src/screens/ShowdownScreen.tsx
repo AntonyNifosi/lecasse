@@ -1,8 +1,8 @@
 import { getCardById, ROUND_ORDER, type GuessGate, type HandCategory, type Rank } from '@thegang/shared';
-import { revealNext } from '../actions';
+import { revealNext, submitGuess } from '../actions';
 import { EmotePicker } from '../components/EmotePicker';
 import { GameMenu } from '../components/GameMenu';
-import { GuessVoteModal } from '../components/GuessVoteModal';
+import { GuessBoard } from '../components/GuessBoard';
 import { PlayingCard } from '../components/PlayingCard';
 import { Table } from '../components/Table';
 import { TokenStars } from '../components/TokenStars';
@@ -33,9 +33,13 @@ export function ShowdownScreen({ onContinue }: Props) {
   const gateBlocking = pendingGates.length > 0;
   // The next player to reveal is also the one every open guess is about — they never vote.
   const iAmNext = nextPlayerId === myPlayerId;
-  // One panel at a time: with two malus cards in play the second guess opens as soon as the
-  // first is validated, rather than stacking two overlays on top of each other.
+  // One board at a time: with two malus cards in play the second guess gate opens as soon as
+  // the first is validated, rather than stacking two boards on top of each other.
   const myOpenGate = myPlayerId && !iAmNext ? pendingGates.find((g) => g.votes[myPlayerId] === undefined) : undefined;
+  // What the felt shows: whichever gate I still need to decide, or — once I'm done, or for
+  // the target who never votes — the first one still open, so there's always something to
+  // watch rather than the board just vanishing the moment my own part is finished.
+  const displayGate = myOpenGate ?? pendingGates[0];
 
   /** Which active malus card opened a given guess, so each poll can say where it comes from. */
   function gateCardName(gate: GuessGate): string | undefined {
@@ -46,20 +50,21 @@ export function ShowdownScreen({ onContinue }: Props) {
     return undefined;
   }
 
-  /** The answers the group settled on for a player, without saying yet whether they're right
-   * — that would give away a hand nobody has revealed. */
-  function groupAnswers(playerId: string): string[] {
-    return sd!.guessGates
-      .filter((g) => g.targetPlayerId === playerId && g.resolved && g.finalGuess !== null)
-      .map((g) => guessLabel(g.guessType, g.finalGuess as HandCategory | Rank));
-  }
-
   return (
     <div className="table-screen">
       <div className="table-screen-header">
         <div>
           <h2>L'abattage</h2>
-          <p className="muted">Du jeton le moins étoilé au plus étoilé.</p>
+          {/* Swaps to the open guess's own question — more useful right then than the
+              generic subtitle, and the page header has none of the felt's space limits. */}
+          {displayGate ? (
+            <p className="muted">
+              {gateCardName(displayGate) && <span className="badge">{gateCardName(displayGate)}</span>}{' '}
+              {displayGate.guessType === 'category' ? `Quelle main a ${nextPlayer?.name ?? '?'} ?` : `Quel rang chez ${nextPlayer?.name ?? '?'} ?`}
+            </p>
+          ) : (
+            <p className="muted">Du jeton le moins étoilé au plus étoilé.</p>
+          )}
         </div>
         <EmotePicker />
         <GameMenu />
@@ -70,12 +75,22 @@ export function ShowdownScreen({ onContinue }: Props) {
         myPlayerId={myPlayerId}
         emotes={emotes}
         highlightPlayerId={allRevealed ? null : nextPlayerId}
+        // The board replaces the community cards outright rather than shrinking them to sit
+        // alongside it: at 5-6 players the rim seats swing low enough (see SPREAD_DEG in
+        // Table.tsx) that the safe band between them and my own seat shrinks to as little as
+        // 70px — nowhere near room for a card row plus a multi-line grid, at any size. The
+        // board itself scrolls horizontally as a single row for the same reason: one row's
+        // height fits that band at every player count, where a wrapping grid only would at 2-3.
         centerContent={
-          <div className="card-row">
-            {game.communityCards.map((c, i) => (
-              <PlayingCard key={i} card={c} />
-            ))}
-          </div>
+          displayGate && myPlayerId ? (
+            <GuessBoard gate={displayGate} players={room.players} myPlayerId={myPlayerId} interactive={displayGate === myOpenGate} />
+          ) : (
+            <div className="card-row">
+              {game.communityCards.map((c, i) => (
+                <PlayingCard key={i} card={c} />
+              ))}
+            </div>
+          )
         }
         renderHoleCards={(player, isMe) => {
           const entry = sd.revealed.find((r) => r.playerId === player.id);
@@ -150,17 +165,6 @@ export function ShowdownScreen({ onContinue }: Props) {
         }}
       />
 
-      {myOpenGate && myPlayerId && (
-        <GuessVoteModal
-          key={myOpenGate.guessType}
-          gate={myOpenGate}
-          cardName={gateCardName(myOpenGate)}
-          targetName={nextPlayer?.name ?? '?'}
-          players={room.players}
-          myPlayerId={myPlayerId}
-        />
-      )}
-
       <div className="sticky-footer stack">
         {/* The group's answer stays on screen after the vote closes, right up to the reveal
             it gated — it used to disappear the instant the last vote landed. */}
@@ -187,13 +191,30 @@ export function ShowdownScreen({ onContinue }: Props) {
               const waitingOn = room.players.filter(
                 (p) => p.connected && p.id !== gate.targetPlayerId && gate.votes[p.id] === undefined,
               );
-              return myVote !== undefined ? (
-                <p key={gate.guessType} className="muted center" style={{ margin: 0 }}>
-                  <span className="badge">{gateCardName(gate)}</span> Vous avez validé{' '}
-                  <strong style={{ color: 'var(--fg)' }}>{guessLabel(gate.guessType, myVote)}</strong>
-                  {waitingOn.length > 0 && ` — en attente de ${waitingOn.map((p) => p.name).join(', ')}…`}
-                </p>
-              ) : null;
+              if (myVote !== undefined) {
+                return (
+                  <p key={gate.guessType} className="muted center" style={{ margin: 0 }}>
+                    <span className="badge">{gateCardName(gate)}</span> Vous avez validé{' '}
+                    <strong style={{ color: 'var(--fg)' }}>{guessLabel(gate.guessType, myVote)}</strong>
+                    {waitingOn.length > 0 && ` — en attente de ${waitingOn.map((p) => p.name).join(', ')}…`}
+                  </p>
+                );
+              }
+              // Not yet voted — only the gate currently shown on the felt gets a Valider
+              // button here; a second pending gate (Gangster mode) waits its turn silently.
+              if (gate !== myOpenGate || !myPlayerId) return null;
+              const myPick = gate.picks[myPlayerId];
+              return (
+                <button
+                  key={gate.guessType}
+                  type="button"
+                  className="btn btn-primary btn-block btn-lg"
+                  disabled={myPick === undefined}
+                  onClick={() => submitGuess(gate.guessType === 'category' ? { guessCategory: myPick as HandCategory } : { guessRank: myPick as Rank })}
+                >
+                  {myPick === undefined ? 'Choisissez sur la table' : `Valider « ${guessLabel(gate.guessType, myPick)} »`}
+                </button>
+              );
             })
           )
         ) : iAmNext ? (

@@ -101,6 +101,7 @@ export function Table({
   return (
     <div className="table-arena" data-opponents={others.length}>
       <div className="table-felt" aria-hidden="true" />
+      <div className="table-felt-surface" aria-hidden="true" />
       {others.map((player, i) => (
         <Seat
           key={player.id}

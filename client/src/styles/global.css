@@ -973,19 +973,34 @@ p {
    the shape a real table is actually built in, rather than the pure ellipse this used to be.
    A radius of half the *width* is what makes the caps exact semicircles; anything past that
    is clamped by the browser, so the huge value here just means "as round as the caps go".
-   Dark green bed in shades near the app's existing --green accent, ringed by a warm wood rail
-   with a thin gold hairline inside it. Purely decorative — the seats and center content are
-   its siblings, positioned over it, so nothing can ever be clipped by its curve. */
+   Purely decorative — the seats and center content are siblings of both layers below,
+   positioned over them, so nothing can ever be clipped by the curve.
+
+   Two layers rather than one: a flat `border-color` can't shade like real wood, so the rail
+   is its own element carrying a directional gradient (light catching the near edge, the far
+   edge falling into shadow) plus a bevel — .table-felt-surface then sits inset inside it by
+   exactly the rail's own thickness, holding the green bed. */
 .table-felt {
   position: absolute;
   inset: calc(var(--tsz, 1rem) * 1.5) calc(var(--tsz, 1rem) * 1.8);
   border-radius: 9999px;
+  background: linear-gradient(168deg, #7d5735 0%, #5c3e23 20%, #3b2715 48%, #2a1b0f 70%, #4a3220 88%, #6a4a2c 100%);
+  box-shadow:
+    0 0 0 1px rgba(224, 168, 62, 0.28),
+    0 6px 18px rgba(0, 0, 0, 0.4),
+    inset 0 2px 1px rgba(255, 228, 186, 0.2),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.45);
+}
+
+.table-felt-surface {
+  position: absolute;
+  inset: calc(var(--tsz, 1rem) * 1.5 + var(--tsz, 1rem) * 0.42) calc(var(--tsz, 1rem) * 1.8 + var(--tsz, 1rem) * 0.42);
+  border-radius: 9999px;
   background: radial-gradient(ellipse at 50% 40%, #2f5c3a 0%, #1f4029 62%, #14301d 100%);
-  border: calc(var(--tsz, 1rem) * 0.42) solid #3e2a19;
   box-shadow:
     inset 0 0 0 2px rgba(224, 168, 62, 0.3),
     inset 0 8px 34px rgba(0, 0, 0, 0.45),
-    0 6px 18px rgba(0, 0, 0, 0.35);
+    0 -2px 5px rgba(0, 0, 0, 0.4);
 }
 
 /* Community cards + token pot, in the middle of the felt. Sized off the ellipse's narrower
@@ -1484,109 +1499,131 @@ p {
   color: var(--fg-muted);
 }
 
-/* Group guess panel (malus "devine sa main") */
+/* Group guess panel (malus "devine sa main") — laid out on the felt itself, inside
+   .table-center, in place of the community cards while it's open (see ShowdownScreen).
 
-/* Lighter scrim than a normal sheet: the table underneath stays readable, since the seats
-   are showing the same votes live and glancing at them is half the point. */
-.guess-vote-backdrop {
-  background: rgba(0, 0, 0, 0.45);
+   A horizontal scroll strip rather than a wrapping grid: .table-center's safe vertical band
+   is set by how far down the lowest rim seat sits (centerTop() in Table.tsx), which at 5-6
+   players collapses to as little as 70px — measured, not assumed — nowhere near enough for
+   a multi-row grid at any size. One row's height fits that band at every player count; extra
+   options just scroll instead of wrapping, so nothing here depends on how many are seated. */
+.guess-board {
+  width: 100%;
+  display: flex;
+  gap: calc(var(--tsz, 1rem) * 0.35);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: calc(var(--tsz, 1rem) * 0.08) calc(var(--tsz, 1rem) * 0.2);
+  scroll-snap-type: x proximity;
+  /* Scrolling stays fully functional (touch, trackpad, click-drag) without a visible
+     scrollbar — worth doing here specifically because a classic desktop scrollbar reserves
+     real layout height on top of any padding, and .table-center's vertical band is already
+     down to ~70px at 5-6 players (see the comment above .guess-board): that reserved strip
+     alone was enough to push the tightest case into overflow. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* So the row isn't flush with .table-center's own edges, which would make the scrollable
+     area read as clipped rather than deliberately wider than the felt lets it show. */
+  margin: 0 calc(var(--tsz, 1rem) * -0.2);
 }
 
-.guess-vote-sheet {
-  max-height: 78dvh;
-}
-
-.guess-options {
-  display: grid;
-  gap: 0.5rem;
-  margin: 0.9rem 0 1rem;
-}
-
-.guess-options[data-kind='category'] {
-  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
-}
-
-.guess-options[data-kind='rank'] {
-  grid-template-columns: repeat(auto-fill, minmax(4.2rem, 1fr));
-}
-
-.guess-option {
+.guess-zone {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  gap: 0.3rem;
-  min-height: 3.4rem;
-  padding: 0.5rem 0.4rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface-raised);
-  color: var(--fg);
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  gap: calc(var(--tsz, 1rem) * 0.05);
+  padding: calc(var(--tsz, 1rem) * 0.11) calc(var(--tsz, 1rem) * 0.3) calc(var(--tsz, 1rem) * 0.08);
+  border: 1px solid rgba(224, 168, 62, 0.4);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--gold-strong);
   cursor: pointer;
   touch-action: manipulation;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.guess-option.selected {
+.guess-board[data-kind='category'] .guess-zone {
+  width: calc(var(--tsz, 1rem) * 4.6);
+}
+
+.guess-board[data-kind='rank'] .guess-zone {
+  width: calc(var(--tsz, 1rem) * 2.4);
+}
+
+.guess-board::-webkit-scrollbar {
+  display: none;
+}
+
+.guess-zone:disabled {
+  cursor: default;
+}
+
+.guess-zone.sel {
   border-color: var(--gold);
-  background: rgba(224, 168, 62, 0.16);
+  background: rgba(224, 168, 62, 0.2);
+  box-shadow: 0 0 0 1px var(--gold) inset;
+  color: var(--fg);
 }
 
-.guess-option:active {
-  transform: scale(0.97);
-}
-
-.guess-option-label {
-  font-weight: 700;
-  font-size: 0.9rem;
+.guess-zone-label {
+  font-size: calc(var(--tsz, 1rem) * 0.46);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  font-weight: 800;
   text-align: center;
+  line-height: 1.15;
 }
 
-.guess-option-backers {
+.guess-zone-fan {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.15rem;
-  min-height: 1.1rem;
+  height: calc(var(--tsz, 1rem) * 0.9);
 }
 
-.guess-backer .avatar {
-  width: 1.15rem;
-  height: 1.15rem;
-  font-size: 0.6rem;
-  opacity: 0.75;
+.guess-zone-fan .playing-card {
+  width: calc(var(--tsz, 1rem) * 0.68);
+  height: calc(var(--tsz, 1rem) * 0.92);
+  font-size: calc(var(--tsz, 1rem) * 0.34);
+  border-radius: 2px;
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: 1px 0 0 2px;
+  gap: 0;
+  line-height: 0.82;
+  box-shadow: -1px 1px 2px rgba(0, 0, 0, 0.55);
+}
+
+.guess-zone-fan .playing-card + .playing-card {
+  margin-left: calc(var(--tsz, 1rem) * -0.58);
+}
+
+.guess-zone-rank {
+  font-size: calc(var(--tsz, 1rem) * 0.85);
+  font-weight: 800;
+  line-height: 1;
+  padding: calc(var(--tsz, 1rem) * 0.18) 0;
+}
+
+.guess-zone-bets {
+  display: flex;
+  min-height: calc(var(--tsz, 1rem) * 0.6);
+  align-items: center;
+}
+
+.guess-zone-bets .avatar {
+  width: calc(var(--tsz, 1rem) * 0.72);
+  height: calc(var(--tsz, 1rem) * 0.72);
+  font-size: calc(var(--tsz, 1rem) * 0.38);
+  border: 2px solid rgba(8, 11, 10, 0.9);
+}
+
+.guess-zone-bets .avatar + .avatar {
+  margin-left: calc(var(--tsz, 1rem) * -0.34);
 }
 
 /* Ringed once that player has actually validated — still leaning vs. committed. */
 .guess-backer.locked .avatar {
-  opacity: 1;
   box-shadow: 0 0 0 2px var(--gold);
-}
-
-/* The folded-down panel: parked just above the footer so the table is fully visible, and
-   never dismissed outright — the guess is blocking everyone until it's answered. */
-.guess-vote-pill {
-  position: fixed;
-  left: 50%;
-  bottom: calc(0.75rem + var(--safe-bottom));
-  transform: translateX(-50%);
-  z-index: 80;
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  max-width: min(92vw, 30rem);
-  padding: 0.55rem 0.9rem;
-  border-radius: 999px;
-  border: 1px solid var(--gold);
-  background: var(--surface-raised);
-  color: var(--fg);
-  font-size: 0.85rem;
-  cursor: pointer;
-  touch-action: manipulation;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
-}
-
-.guess-vote-pill-icon {
-  font-size: 1.1rem;
-  line-height: 1;
 }
