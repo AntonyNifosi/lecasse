@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { HAND_CATEGORIES, type GuessGate, type HandCategory, type PlayerPublic, type Rank } from '@thegang/shared';
 import { previewGuess } from '../actions';
-import { HAND_CATEGORY_EXAMPLE, HAND_CATEGORY_LABELS, rankLabel } from '../theme';
+import { HAND_CATEGORY_EXAMPLE, HAND_CATEGORY_SHORT, rankLabel } from '../theme';
 import { Avatar } from './Avatar';
 import { PlayingCard } from './PlayingCard';
 
@@ -57,7 +57,7 @@ export function GuessBoard({ gate, players, myPlayerId, interactive }: Props) {
             disabled={!interactive}
             onClick={() => pick(cat)}
           >
-            <span className="guess-zone-label">{HAND_CATEGORY_LABELS[cat]}</span>
+            <span className="guess-zone-label">{HAND_CATEGORY_SHORT[cat]}</span>
             <span className="guess-zone-fan">
               {HAND_CATEGORY_EXAMPLE[cat].map((c, idx) => (
                 <PlayingCard key={idx} card={c} small />

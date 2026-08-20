@@ -34,6 +34,12 @@ export function MySeat({ player, holeCards, badge, token, extra, hyperactive, hi
           <Avatar name={player.name} color={player.colorTag} />
         </span>
         {emote}
+        {/* Pinned on the avatar's corner exactly like everyone else's (see .my-seat .token),
+         * rather than sitting in the seat's own flex row: out here it wrapped onto a line of
+         * its own on a narrow screen, which added a whole chip's height to the tallest thing
+         * on the table — and .table-center's bottom edge has to clear my seat, so that came
+         * straight off the middle of the felt. */}
+        {token}
       </span>
       <div className="my-seat-info">
         <span className="my-seat-name">
@@ -44,7 +50,6 @@ export function MySeat({ player, holeCards, badge, token, extra, hyperactive, hi
         {extra}
       </div>
       <div className="my-seat-cards">{holeCards}</div>
-      {token}
     </div>
   );
 }

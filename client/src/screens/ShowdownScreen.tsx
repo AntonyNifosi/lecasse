@@ -75,12 +75,14 @@ export function ShowdownScreen({ onContinue }: Props) {
         myPlayerId={myPlayerId}
         emotes={emotes}
         highlightPlayerId={allRevealed ? null : nextPlayerId}
-        // The board replaces the community cards outright rather than shrinking them to sit
-        // alongside it: at 5-6 players the rim seats swing low enough (see SPREAD_DEG in
-        // Table.tsx) that the safe band between them and my own seat shrinks to as little as
-        // 70px — nowhere near room for a card row plus a multi-line grid, at any size. The
-        // board itself scrolls horizontally as a single row for the same reason: one row's
-        // height fits that band at every player count, where a wrapping grid only would at 2-3.
+        // Trades width for height while the vote is open: the board is narrower than a card
+        // row, which is what lets it clear the seats out on the rail and start level with
+        // them instead of below them (see tableGeometry's CENTER_W/centerTop). That's the
+        // difference between a 19px band and a 188px one at six players — enough for every
+        // option to be on the felt at once.
+        centerMode={displayGate && myPlayerId ? 'guess' : 'cards'}
+        // Still replaces the community cards rather than sitting alongside them: even the
+        // taller band has no room for both.
         centerContent={
           displayGate && myPlayerId ? (
             <GuessBoard gate={displayGate} players={room.players} myPlayerId={myPlayerId} interactive={displayGate === myOpenGate} />

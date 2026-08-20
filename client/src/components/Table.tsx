@@ -1,5 +1,6 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { EMOTES, type EmoteId, type PlayerPublic } from '@thegang/shared';
+import { centerTop, centerWidth, seatPosition, type CenterMode } from '../tableGeometry';
 import { MySeat } from './MySeat';
 import { Seat } from './Seat';
 
@@ -16,48 +17,14 @@ function emoteBubble(entry: { emoteId: EmoteId; seq: number } | undefined): Reac
   );
 }
 
-/** How far around the oval the opponents fan out, indexed by how many there are: one sits
- * dead center at the top, more spread toward the sides as there are more of them — past 90°
- * at 4-5, swinging the outermost seats slightly below the horizontal midline, which is what
- * it takes to give revealed showdown cards (taller than a face-down peek) enough room
- * between neighbors without colliding — verified by measurement, not just eyeballed (see
- * Seat's .table-seat-cards.revealed). Still short of the bottom arc, which belongs to my
- * own seat. */
-const SPREAD_DEG = [0, 0, 55, 70, 95, 108];
-
-/** Where opponent `index` of `total` sits. Angles run from the top of the oval (0°) outward
- * to either side, then get mapped onto the arena *inset by half a seat* — so a seat's own
- * box is always fully inside the arena, however short or narrow the viewport makes it. A
- * raw percentage would let the topmost seat hang off the top edge as soon as the oval got
- * squashed, which is exactly how the old layout broke on a real phone. */
-function seatPosition(index: number, total: number): CSSProperties {
-  const { fx, fy } = seatFraction(index, total);
-  return {
-    left: `calc(var(--seat-inset-x) + (100% - 2 * var(--seat-inset-x)) * ${fx.toFixed(4)})`,
-    top: `calc(var(--seat-inset-y) + (100% - 2 * var(--seat-inset-y)) * ${fy.toFixed(4)})`,
-  };
-}
-
-function seatFraction(index: number, total: number): { fx: number; fy: number } {
-  const spread = SPREAD_DEG[Math.min(total, SPREAD_DEG.length - 1)];
-  const deg = total <= 1 ? 0 : -spread + (index * 2 * spread) / (total - 1);
-  const rad = (deg * Math.PI) / 180;
-  return { fx: (50 + 38 * Math.sin(rad)) / 100, fy: (50 - 44 * Math.cos(rad)) / 100 };
-}
-
-/** Top edge of the band the community cards and pot live in: just under the lowest seat on
- * the rim. The oval is narrow enough on a phone that a seat and the card row can't clear
- * each other sideways, so they're kept apart vertically instead — which means this has to
- * follow wherever the rim seats actually end up, rather than sitting at a fixed 50%. */
-function centerTop(total: number): string {
-  const lowest = Math.max(...Array.from({ length: Math.max(total, 1) }, (_, i) => seatFraction(i, total).fy));
-  return `calc(2 * var(--seat-inset-y) + (100% - 2 * var(--seat-inset-y)) * ${lowest.toFixed(4)})`;
-}
-
 interface TableProps {
   players: PlayerPublic[];
   myPlayerId: string | null;
   centerContent: ReactNode;
+  /** What's in the middle of the felt — the block is sized and placed differently for a row
+   * of cards than for the guess board, which needs height far more than width (see
+   * tableGeometry's CENTER_W). */
+  centerMode?: CenterMode;
   renderHoleCards: (player: PlayerPublic, isMe: boolean) => ReactNode;
   /** True once a player's hand is actually revealed (showdown) — switches their cards from
    * the small face-down peek tucked behind the avatar to a plain, legible row (see Seat). */
@@ -85,6 +52,7 @@ export function Table({
   players,
   myPlayerId,
   centerContent,
+  centerMode = 'cards',
   renderHoleCards,
   cardsRevealed,
   renderBadge,
@@ -118,7 +86,17 @@ export function Table({
           style={seatPosition(i, others.length)}
         />
       ))}
-      <div className="table-center" style={{ top: centerTop(others.length) }}>
+      {/* Holds the middle of the felt down to just under the lowest seat sitting over it. A
+          spacer rather than a `top` on the block itself, so the block can then be a flex
+          item that simply takes what's left between here and my own seat — whatever height
+          my seat happens to be. It used to reserve that with a fixed 5.5 --tsz, which was
+          wrong by 26px the moment my seat wrapped onto two rows on a narrow screen. */}
+      <div className="table-center-spacer" aria-hidden="true" style={{ height: centerTop(others.length, centerMode) }} />
+      <div
+        className="table-center"
+        data-mode={centerMode}
+        style={{ width: `${(centerWidth(others.length, centerMode) * 100).toFixed(1)}%` }}
+      >
         {centerContent}
       </div>
       {me && (

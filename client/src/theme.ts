@@ -38,6 +38,24 @@ export const HAND_CATEGORY_LABELS: Record<string, string> = {
   royalFlush: 'Quinte flush royale',
 };
 
+/** The same categories, short enough to sit on one line inside a guess-board tile — the
+ * tiles are about 3 --tsz wide at six players, where "Quinte flush royale" would wrap to
+ * three lines and blow the grid's row height. Nothing rides on the abbreviation alone: each
+ * tile shows an example hand underneath, and the Valider button spells the choice out in
+ * full before it's committed. */
+export const HAND_CATEGORY_SHORT: Record<string, string> = {
+  highCard: 'Haute',
+  pair: 'Paire',
+  twoPair: '2 paires',
+  trips: 'Brelan',
+  straight: 'Quinte',
+  flush: 'Couleur',
+  fullHouse: 'Full',
+  quads: 'Carré',
+  straightFlush: 'Q. flush',
+  royalFlush: 'Q. royale',
+};
+
 /** A small illustrative hand for each category, shown on the guess board so a category
  * reads as a shape of cards rather than a word to translate — real ranks/suits, but not
  * drawn from the actual deck in play. Each uses exactly the number of cards that defines

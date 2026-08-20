@@ -165,7 +165,11 @@ export function GameBoardScreen() {
               type="button"
               data-token-slot={player.id}
               className={`token${isMine ? ' mine' : ''}${isLocked ? ' locked' : ''}${isLockable ? ' lockable' : ''}${isContested ? ' contested' : ''}${flashSeq !== undefined ? ' token-flash' : ''}${landing ? ' token-landing' : ''}`}
-              style={{ background: isLocked || isLockable ? undefined : ROUND_TOKEN_COLOR[roundColor], borderColor: player.colorTag, position: 'relative' }}
+              // No inline `position` here: the seat rules pin this chip to the corner of its
+              // owner's avatar (.table-seat .token / .my-seat .token), and an inline
+              // position beats any stylesheet rule — which is why it used to sit in the
+              // seat's flex row instead, at full pot size, on this screen only.
+              style={{ background: isLocked || isLockable ? undefined : ROUND_TOKEN_COLOR[roundColor], borderColor: player.colorTag }}
               // Locked means stuck with its owner for the round — nobody can act on it,
               // not even the owner switching away from it (see engine's takeToken).
               disabled={isLocked || landing}
