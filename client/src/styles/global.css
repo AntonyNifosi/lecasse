@@ -646,11 +646,18 @@ p {
   text-align: center;
 }
 
-/* The real rule: 30% of the chip's own smaller side, whatever that chip's size happens to
-   be. Overriding --star itself (rather than just the font-size) keeps the row width and the
-   per-star column in step with it. The declarations above stay as the fallback. */
+/* 30% of the chip's own smaller side, whatever that chip's size happens to be — but only
+   inside the pot, where it's actually needed: the pot's chips divide the center block's
+   width by however many stars this round has, so no fixed tsz-based value can track their
+   real size the way a container query can. Everywhere else (a seat, the flying ghost, a
+   showdown chip) already has a definite, correct --star of its own (see those rules), and
+   scoping this here instead of onto bare .token-stars matters because of how custom
+   properties cascade: a child's own declaration always wins over an inherited one, no matter
+   how specific the parent's selector is — an unscoped .token-stars{--star:30cqmin} would
+   silently override every one of those specific values, which is what made a seat's token
+   render its stars in a single vertical column instead of the intended pyramid. */
 @supports (width: 1cqmin) {
-  .token-stars {
+  .table-center .token-stars {
     --star: 30cqmin;
   }
 }
@@ -1595,8 +1602,11 @@ p {
   box-shadow: -1px 1px 2px rgba(0, 0, 0, 0.55);
 }
 
+/* Overlap small enough that each card still shows its own rank clearly, not just a sliver
+   swallowed by the next one — the zone (4.6tsz wide) has room to spare even for a 5-card
+   fan at this spacing, so there was no real need to crowd them this tight. */
 .guess-zone-fan .playing-card + .playing-card {
-  margin-left: calc(var(--tsz, 1rem) * -0.58);
+  margin-left: calc(var(--tsz, 1rem) * -0.28);
 }
 
 .guess-zone-rank {
