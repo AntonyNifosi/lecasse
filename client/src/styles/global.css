@@ -618,9 +618,9 @@ p {
    locked token is a rule you have to notice *before* tapping it, not after. */
 .token-lock {
   position: absolute;
-  top: calc(var(--tsz, 1rem) * -0.55);
-  right: calc(var(--tsz, 1rem) * -0.55);
-  font-size: calc(var(--tsz, 1rem) * 1.1);
+  top: calc(var(--tsz, 1rem) * -0.42);
+  right: calc(var(--tsz, 1rem) * -0.42);
+  font-size: calc(var(--tsz, 1rem) * 0.85);
   line-height: 1;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
 }
@@ -1298,13 +1298,18 @@ p {
    claimed (the pot keeps an empty slot behind — see .token-empty-slot). */
 .table-seat .token {
   position: absolute;
-  right: calc(var(--tsz, 1rem) * -0.5);
-  bottom: calc(var(--tsz, 1rem) * -0.3);
+  right: calc(var(--tsz, 1rem) * -0.25);
+  bottom: calc(var(--tsz, 1rem) * -0.15);
   z-index: 2;
-  width: calc(var(--tsz, 1rem) * 1.7);
-  height: calc(var(--tsz, 1rem) * 1.7);
-  font-size: calc(var(--tsz, 1rem) * 0.75);
-  --star: calc(var(--tsz, 1rem) * 0.51);
+  /* A corner badge, not a second face: this used to be 1.7tsz on a 2.2tsz avatar (77% of
+     it), which read fine only because an inline position:relative elsewhere (see
+     GameBoardScreen) was silently keeping it out of the seat's flex row instead of actually
+     pinned here — once that bug was fixed and this rule started applying for real, that
+     size buried half the avatar under the chip. */
+  width: calc(var(--tsz, 1rem) * 1.05);
+  height: calc(var(--tsz, 1rem) * 1.05);
+  font-size: calc(var(--tsz, 1rem) * 0.46);
+  --star: calc(var(--tsz, 1rem) * 0.32);
 }
 
 /* Mine, same idea, scaled to my bigger avatar — but on the outer side: my seat lays its
@@ -1312,13 +1317,15 @@ p {
    tucked behind. */
 .my-seat .token {
   position: absolute;
-  left: calc(var(--tsz, 1rem) * -0.6);
-  bottom: calc(var(--tsz, 1rem) * -0.35);
+  left: calc(var(--tsz, 1rem) * -0.3);
+  bottom: calc(var(--tsz, 1rem) * -0.18);
   z-index: 2;
-  width: calc(var(--tsz, 1rem) * 2.1);
-  height: calc(var(--tsz, 1rem) * 2.1);
-  font-size: calc(var(--tsz, 1rem) * 0.9);
-  --star: calc(var(--tsz, 1rem) * 0.63);
+  /* Same corner-badge sizing as the opponents' chip, scaled to my bigger avatar — same fix,
+     same reason (see .table-seat .token). */
+  width: calc(var(--tsz, 1rem) * 1.5);
+  height: calc(var(--tsz, 1rem) * 1.5);
+  font-size: calc(var(--tsz, 1rem) * 0.65);
+  --star: calc(var(--tsz, 1rem) * 0.46);
 }
 
 .table-seat-showdown {
