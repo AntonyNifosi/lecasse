@@ -1,4 +1,4 @@
-const CACHE_NAME = 'le-casse-shell-v3';
+const CACHE_NAME = 'le-casse-shell-v4';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -17,16 +17,18 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.pathname.startsWith('/socket.io')) return; // never intercept realtime traffic
 
+  // Network-first: a stale shell is a wrong shell, not a fast one - the deploy that keeps
+  // shipping it, and the room codes and game state it'd be showing, are only ever a page
+  // load old. Cache-first served whatever load first cached, however many deploys behind
+  // that got, since the refetch it kicked off in the background only ever paid off the
+  // load *after* the one that needed it. This still falls back to that cache, but only once
+  // the network has actually failed - offline is the one time a stale shell beats none.
   event.respondWith(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      const cached = await cache.match(request);
-      const networkFetch = fetch(request)
-        .then((response) => {
-          if (response.ok) cache.put(request, response.clone());
-          return response;
-        })
-        .catch(() => cached);
-      return cached || networkFetch;
-    }),
+    fetch(request)
+      .then((response) => {
+        if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
+        return response;
+      })
+      .catch(() => caches.match(request)),
   );
 });
