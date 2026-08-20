@@ -626,23 +626,28 @@ p {
 }
 
 /* A token's value as stars rather than a digit, like the markings on the physical chips.
-   One star size for every count and every chip — --star is set per chip below as a fraction
-   of that chip's own diameter, not of its font-size, since the pot chip, the small one
-   pinned to a seat and the flying ghost don't share the same text-to-chip proportion. Each
-   star gets exactly one glyph's worth of width, so the row wraps precisely where TokenStars
-   asked (--cols) and the leftovers on the last row stay centered under the ones above. */
+   --star (set per chip below) controls how big a glyph looks, but has no say in how many
+   fit per row any more — that's cols dividing 100% of the chip's own content box instead,
+   which is guaranteed to actually be there. It didn't used to be: sizing a row to
+   `cols * star * 0.95` assumed that width was available inside the chip, but the chip's own
+   2px border is a fixed pixel amount that doesn't shrink with --tsz, so at a small enough
+   chip (a seat's badge, or the pot once six stars have split it six ways) the border alone
+   could out-eat that assumption — the row didn't fit the one column it was sized for, wrapped
+   a column early, and stacked what was meant to be a pyramid into a column. Percentages of
+   the chip's real content box can't make that mistake, whatever the border costs. */
 .token-stars {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-content: center;
-  width: calc(var(--cols, 3) * var(--star, 1em) * 0.95);
+  width: 100%;
+  height: 100%;
   font-size: var(--star, 1em);
   line-height: 0.9;
 }
 
 .token-stars > span {
-  flex: 0 0 calc(var(--star, 1em) * 0.95);
+  flex: 0 0 calc(100% / var(--cols, 3));
   text-align: center;
 }
 
@@ -1298,34 +1303,38 @@ p {
    claimed (the pot keeps an empty slot behind — see .token-empty-slot). */
 .table-seat .token {
   position: absolute;
-  right: calc(var(--tsz, 1rem) * -0.25);
-  bottom: calc(var(--tsz, 1rem) * -0.15);
+  right: calc(var(--tsz, 1rem) * -0.32);
+  bottom: calc(var(--tsz, 1rem) * -0.2);
   z-index: 2;
   /* A corner badge, not a second face: this used to be 1.7tsz on a 2.2tsz avatar (77% of
      it), which read fine only because an inline position:relative elsewhere (see
      GameBoardScreen) was silently keeping it out of the seat's flex row instead of actually
      pinned here — once that bug was fixed and this rule started applying for real, that
-     size buried half the avatar under the chip. */
-  width: calc(var(--tsz, 1rem) * 1.05);
-  height: calc(var(--tsz, 1rem) * 1.05);
-  font-size: calc(var(--tsz, 1rem) * 0.46);
-  --star: calc(var(--tsz, 1rem) * 0.32);
+     size buried half the avatar under the chip. Shrinking it to fix that then made it too
+     small to reliably tap to take it back; this is the middle of those two. */
+  width: calc(var(--tsz, 1rem) * 1.35);
+  height: calc(var(--tsz, 1rem) * 1.35);
+  font-size: calc(var(--tsz, 1rem) * 0.58);
+  --star: calc(var(--tsz, 1rem) * 0.4);
 }
 
 /* Mine, same idea, scaled to my bigger avatar — but on the outer side: my seat lays its
    name plate and cards out to the right of the avatar, which a chip on that corner ends up
    tucked behind. */
+/* Pinned beside my own cards (see .my-seat-cards, its now-positioned parent) rather than on
+   my avatar: freed from having to dodge the avatar or my name plate, so it can be sized for
+   a comfortable tap rather than for how little of something else it covers. */
 .my-seat .token {
   position: absolute;
-  left: calc(var(--tsz, 1rem) * -0.3);
-  bottom: calc(var(--tsz, 1rem) * -0.18);
+  top: 50%;
+  left: 100%;
+  margin-left: calc(var(--tsz, 1rem) * 0.4);
+  transform: translateY(-50%);
   z-index: 2;
-  /* Same corner-badge sizing as the opponents' chip, scaled to my bigger avatar — same fix,
-     same reason (see .table-seat .token). */
-  width: calc(var(--tsz, 1rem) * 1.5);
-  height: calc(var(--tsz, 1rem) * 1.5);
-  font-size: calc(var(--tsz, 1rem) * 0.65);
-  --star: calc(var(--tsz, 1rem) * 0.46);
+  width: calc(var(--tsz, 1rem) * 1.9);
+  height: calc(var(--tsz, 1rem) * 1.9);
+  font-size: calc(var(--tsz, 1rem) * 0.82);
+  --star: calc(var(--tsz, 1rem) * 0.58);
 }
 
 .table-seat-showdown {
@@ -1412,6 +1421,7 @@ p {
 }
 
 .my-seat-cards {
+  position: relative;
   display: flex;
   gap: calc(var(--tsz, 1rem) * 0.35);
   flex-shrink: 0;
@@ -1622,6 +1632,33 @@ p {
   width: calc((100% - var(--tsz, 1rem) * 0.4) / 3);
 }
 
+/* At 4-5 players the middle of the felt has real slack to spare (40-59px, measured) even
+   with the grid at its base size — the two counts that don't (3 and 6, ~5-7px each) are the
+   ones the base size above is actually sized for. A uniformly bigger grid would have to fit
+   inside their budget too, so this only grows it where there's room to: the fan and its
+   label, the two things that actually read as "small" (see .guess-zone-fan). */
+.table-arena[data-opponents='3'] .guess-zone-fan,
+.table-arena[data-opponents='4'] .guess-zone-fan {
+  height: calc(var(--tsz, 1rem) * 1.22);
+}
+
+.table-arena[data-opponents='3'] .guess-zone-fan .playing-card,
+.table-arena[data-opponents='4'] .guess-zone-fan .playing-card {
+  width: calc(var(--tsz, 1rem) * 0.88);
+  height: calc(var(--tsz, 1rem) * 1.22);
+  font-size: calc(var(--tsz, 1rem) * 0.46);
+}
+
+.table-arena[data-opponents='3'] .guess-zone-fan .playing-card + .playing-card,
+.table-arena[data-opponents='4'] .guess-zone-fan .playing-card + .playing-card {
+  margin-left: calc(var(--tsz, 1rem) * -0.36);
+}
+
+.table-arena[data-opponents='3'] .guess-zone-label,
+.table-arena[data-opponents='4'] .guess-zone-label {
+  font-size: calc(var(--tsz, 1rem) * 0.52);
+}
+
 /* The ranks are one glyph each, so these just flow: as many per row as the block is wide
    enough for, four or five depending on the player count. */
 .guess-board[data-kind='rank'] .guess-zone {
@@ -1724,6 +1761,26 @@ p {
 
 .guess-zone-bets .avatar + .avatar {
   margin-left: calc(var(--tsz, 1rem) * -0.34);
+}
+
+/* A rank tile is a single centered digit in a much narrower box than a category tile's
+   label-plus-hand — the corner offset above was tuned for the latter, and on a rank tile it
+   left the chips sitting mostly on top of the digit instead of past its corner, which is
+   what "a little pastille hiding the choice" turned out to be. Smaller chips pushed further
+   out clear the glyph instead of covering it. */
+.guess-board[data-kind='rank'] .guess-zone-bets {
+  right: calc(var(--tsz, 1rem) * -0.44);
+  bottom: calc(var(--tsz, 1rem) * -0.3);
+}
+
+.guess-board[data-kind='rank'] .guess-zone-bets .avatar {
+  width: calc(var(--tsz, 1rem) * 0.54);
+  height: calc(var(--tsz, 1rem) * 0.54);
+  font-size: calc(var(--tsz, 1rem) * 0.3);
+}
+
+.guess-board[data-kind='rank'] .guess-zone-bets .avatar + .avatar {
+  margin-left: calc(var(--tsz, 1rem) * -0.24);
 }
 
 /* Ringed once that player has actually validated — still leaning vs. committed. */
