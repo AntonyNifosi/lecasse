@@ -626,29 +626,27 @@ p {
 }
 
 /* A token's value as stars rather than a digit, like the markings on the physical chips.
-   --star (set per chip below) controls how big a glyph looks, but has no say in how many
-   fit per row any more — that's cols dividing 100% of the chip's own content box instead,
-   which is guaranteed to actually be there. It didn't used to be: sizing a row to
-   `cols * star * 0.95` assumed that width was available inside the chip, but the chip's own
-   2px border is a fixed pixel amount that doesn't shrink with --tsz, so at a small enough
-   chip (a seat's badge, or the pot once six stars have split it six ways) the border alone
-   could out-eat that assumption — the row didn't fit the one column it was sized for, wrapped
-   a column early, and stacked what was meant to be a pyramid into a column. Percentages of
-   the chip's real content box can't make that mistake, whatever the border costs. */
+   --star (set per chip below) controls how big a glyph looks; how many fit per row is
+   decided in TokenStars.tsx, not here — each row is its own flex child, exactly as wide as
+   its own stars, so this container only has to stack and center them. Two earlier attempts
+   sized a row's width in CSS instead: an absolute px formula (`cols * star * 0.95`) assumed
+   room that the chip's own fixed 2px border could out-eat at a small enough chip, wrapping a
+   column early; a percentage-of-the-chip one fixed that but stretched every star apart to
+   fill the chip's full width instead of packing them. Neither problem exists once nothing
+   here has to guess a width at all. */
 .token-stars {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  align-content: center;
   width: 100%;
   height: 100%;
   font-size: var(--star, 1em);
   line-height: 0.9;
 }
 
-.token-stars > span {
-  flex: 0 0 calc(100% / var(--cols, 3));
-  text-align: center;
+.token-stars-row {
+  display: flex;
 }
 
 /* 30% of the chip's own smaller side, whatever that chip's size happens to be — but only
@@ -1304,7 +1302,11 @@ p {
 .table-seat .token {
   position: absolute;
   right: calc(var(--tsz, 1rem) * -0.32);
-  bottom: calc(var(--tsz, 1rem) * -0.2);
+  /* Flush with the avatar's own bottom edge, not below it: this was -0.2tsz, and the seat's
+     own gap down to the name plate is a fixed 0.15rem (see .table-seat) — any tsz bigger
+     than a stamp made that droop exceed the gap and land the chip on the name instead of
+     beside it. Still reads as a corner badge; it just can no longer reach the row below it. */
+  bottom: 0;
   z-index: 2;
   /* A corner badge, not a second face: this used to be 1.7tsz on a 2.2tsz avatar (77% of
      it), which read fine only because an inline position:relative elsewhere (see
@@ -1326,10 +1328,19 @@ p {
    a comfortable tap rather than for how little of something else it covers. */
 .my-seat .token {
   position: absolute;
-  top: 50%;
+  /* Centered via top instead of transform:translateY(-50%) — a claim/steal pop (see
+     tokenClaim) animates transform too, and while it's running an animated transform
+     replaces the static one outright rather than combining with it. That used to drop the
+     centering for the pop's whole duration, so the token sat visibly low and then snapped
+     up once the animation ended; a length here can't be knocked out by an animated
+     transform, whatever else is animating. */
+  top: calc(50% - var(--tsz, 1rem) * 0.95);
   left: 100%;
   margin-left: calc(var(--tsz, 1rem) * 0.4);
-  transform: translateY(-50%);
+  /* Neutralizes .token.mine's scale(1.06) (same specificity, but declared earlier) so this
+     stays exactly the size below, at rest — only the animations above are what transform
+     should still be free to do. */
+  transform: none;
   z-index: 2;
   width: calc(var(--tsz, 1rem) * 1.9);
   height: calc(var(--tsz, 1rem) * 1.9);
