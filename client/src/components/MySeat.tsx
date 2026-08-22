@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import type { PlayerPublic } from '@thegang/shared';
 import { Avatar } from './Avatar';
 import { MarqueeName } from './MarqueeName';
@@ -26,34 +26,58 @@ export function MySeat({ player, holeCards, badge, token, extra, hyperactive, hi
     .filter(Boolean)
     .join(' ');
 
-  // The little "cards shift into place" flourish from taking a token, without the seat-wide
-  // slide it used to be: that one moved everything, cards included, by animating .my-seat's
-  // own transform — which is exactly the transform useTokenFlights reads via
-  // getBoundingClientRect() the instant the token appears, before any transition has had a
-  // chance to run even one frame (see .my-seat.has-token's comment in global.css). Reading
-  // mid-transition landed the flight, and the token's own first paint, short of the shift by
-  // however much the animation hadn't caught up yet — the token flying in noticeably right
-  // of my cards, snapping over once CSS caught up next frame. Restricting the animation to
-  // just the two hole cards (a sibling of the token, never an ancestor of it) still reads as
-  // "the cards shift," and getBoundingClientRect() on the token never has anything to lie
-  // about — its own position is set once, instantly, never mid-flight.
-  // Set during render, not an effect: an effect fires after the first paint, so the cards
-  // would show one real frame in their final position before the animation's start keyframe
-  // cut them back to it — a jump, then the slide it was supposed to replace. Adjusting state
-  // from a ref comparison mid-render is React's own sanctioned way to have the very first
-  // commit already reflect it.
-  const [justClaimedSeq, setJustClaimedSeq] = useState(0);
+  // Taking a token shifts this whole seat sideways (see .my-seat.has-token), instantly and
+  // deliberately so: that shift is a transform on an *ancestor* of the token, and animating
+  // it is what used to make useTokenFlights — which reads the token's real position with
+  // getBoundingClientRect() the instant it appears, before a transition has run even one
+  // frame — measure a position the token wasn't at yet, flying it in wide and snapping it
+  // over next frame.
+  //
+  // So the seat still jumps instantly, and the *cards* are what slide: they start out
+  // countering that jump exactly (rendering where they were a moment ago) and animate back
+  // to zero, which reads as them gliding aside to make room. The wrapper they're in is a
+  // sibling of the token, never an ancestor, so none of this can put the token's measured
+  // position back in question.
+  //
+  // Driven imperatively rather than by re-keying this wrapper to restart a CSS animation:
+  // re-keying remounts the cards themselves, and .playing-card has its own cardReveal
+  // entrance animation (opacity 0, scaled, rotated) that restarts with them — which is why
+  // that read as the cards blinking out and back rather than sliding. Animating the wrapper
+  // in place never touches them.
   const hasToken = Boolean(token);
   // Seeded from this render's own value, not a hardcoded false: otherwise mounting already
   // holding a token (a page reload mid-round) reads as a claim happening right then too.
   const hadTokenRef = useRef(hasToken);
-  if (hasToken !== hadTokenRef.current) {
+  const seatRef = useRef<HTMLDivElement>(null);
+  const cardsRef = useRef<HTMLSpanElement>(null);
+  // The shift is only readable off the seat while it's actually applied, so it's captured on
+  // the way in and reused to play the same slide in reverse on the way back out.
+  const shiftPxRef = useRef(0);
+
+  useLayoutEffect(() => {
+    if (hasToken === hadTokenRef.current) return;
     hadTokenRef.current = hasToken;
-    if (hasToken) setJustClaimedSeq((s) => s + 1);
-  }
+    const seat = seatRef.current;
+    const cards = cardsRef.current;
+    if (!seat || !cards) return;
+
+    if (hasToken) {
+      // Whatever --tsz currently resolves to, rather than re-deriving the multiplier here:
+      // the seat has already been shifted by the time this runs, so its own matrix is the
+      // one number guaranteed to match what the cards have to counter.
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(seat).transform);
+      shiftPxRef.current = Math.abs(matrix.m41);
+    }
+    const from = hasToken ? shiftPxRef.current : -shiftPxRef.current;
+    if (from === 0) return;
+    cards.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(0)' }], {
+      duration: 260,
+      easing: 'ease-out',
+    });
+  }, [hasToken]);
 
   return (
-    <div className={classes} data-seat-player={player.id}>
+    <div className={classes} data-seat-player={player.id} ref={seatRef}>
       {/* Only the avatar is re-keyed, not the wrapper — see the same note in Seat. */}
       <span className="avatar-wrap">
         <span
@@ -78,7 +102,7 @@ export function MySeat({ player, holeCards, badge, token, extra, hyperactive, hi
        * the avatar (technically as compact, but read less clearly as "my token" than
        * sitting with the hand it belongs to). */}
       <div className="my-seat-cards">
-        <span key={justClaimedSeq} className="my-seat-hole-cards">
+        <span className="my-seat-hole-cards" ref={cardsRef}>
           {holeCards}
         </span>
         {token}

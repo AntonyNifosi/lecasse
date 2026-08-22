@@ -1504,24 +1504,13 @@ p {
   flex-shrink: 0;
 }
 
-/* Its own flex row, not just the two cards loose in .my-seat-cards: re-keying this wrapper
-   (see MySeat) needs something of its own to remount and restart the animation on — the
-   token, right after it in the same row, is deliberately outside it and never remounts. */
+/* Its own flex row, not just the two cards loose in .my-seat-cards: MySeat animates this
+   wrapper (rather than the cards themselves, which have their own cardReveal entrance to not
+   disturb) when a token arrives or leaves. No animation declared here — it's played
+   imperatively, off a shift only measurable at runtime. */
 .my-seat-hole-cards {
   display: flex;
   gap: calc(var(--tsz, 1rem) * 0.35);
-  animation: myCardsSettle 0.28s ease-out;
-}
-
-@keyframes myCardsSettle {
-  from {
-    transform: translateX(calc(var(--tsz, 1rem) * 0.5));
-    opacity: 0.5;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
 }
 
 /* Flying token ghost: a decorative clone that travels from wherever a token came from
