@@ -1078,13 +1078,13 @@ p {
    and a percentage width would make these cards shrink right along with it instead of
    staying a fixed, legible size. */
 .table-center .card-row-compact {
-  gap: calc(var(--tsz, 1rem) * 0.14);
+  gap: calc(var(--tsz, 1rem) * 0.2);
 }
 
 .table-center .card-row-compact .playing-card {
-  width: calc(var(--tsz, 1rem) * 0.86);
-  height: calc(var(--tsz, 1rem) * 1.2);
-  font-size: calc(var(--tsz, 1rem) * 0.44);
+  width: calc(var(--tsz, 1rem) * 1.05);
+  height: calc(var(--tsz, 1rem) * 1.46);
+  font-size: calc(var(--tsz, 1rem) * 0.54);
   border-radius: 4px;
   flex: 0 1 auto;
 }
@@ -1378,6 +1378,23 @@ p {
   gap: calc(var(--tsz, 1rem) * 0.35);
   padding-bottom: calc(var(--tsz, 1rem) * 0.5);
   flex-shrink: 0;
+  /* On the base rule, not just .has-token below: a transition only plays on whichever side
+     of the change actually declares it, so putting it only on .has-token would animate
+     gaining a token but snap instantly on losing one. */
+  transition: transform 0.2s ease;
+}
+
+/* My token sits outside my cards' own box (position:absolute, see .my-seat .token) so it
+   can't trigger the wrap above — but that also means it's invisible to how this row gets
+   centered: centering only sees avatar + name + cards, so the token's reach past their
+   right edge lands wherever that centering happened to leave room, not wherever there
+   actually is any. On a narrow enough screen there wasn't enough on that side, and the
+   token was clipped by the edge of the viewport. Shifting the whole row left by half the
+   token's reach (it's the last thing in the row, so this is the same as shifting the token
+   half its own reach back toward the middle) re-centers what's actually on screen without
+   giving the token itself, or the wrap check above, anything new to measure. */
+.my-seat.has-token {
+  transform: translateX(calc(var(--tsz, 1rem) * -1.15));
 }
 
 /* Lets the info column give way instead of pushing my cards onto a second row: a long
@@ -1627,7 +1644,7 @@ p {
   flex-wrap: wrap;
   justify-content: center;
   align-content: center;
-  gap: calc(var(--tsz, 1rem) * 0.13);
+  gap: calc(var(--tsz, 1rem) * 0.3);
   /* Room for the bet chips, which hang off their tile's corner (see .guess-zone-bets):
      without it a chip on the last row or an outer column spills past the board's own box
      and out over the felt. */
@@ -1683,7 +1700,7 @@ p {
   align-items: center;
   justify-content: center;
   gap: 0;
-  padding: calc(var(--tsz, 1rem) * 0.055) calc(var(--tsz, 1rem) * 0.16) calc(var(--tsz, 1rem) * 0.04);
+  padding: calc(var(--tsz, 1rem) * 0.12) calc(var(--tsz, 1rem) * 0.16) calc(var(--tsz, 1rem) * 0.1);
   border: 1px solid rgba(224, 168, 62, 0.4);
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.2);

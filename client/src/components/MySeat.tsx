@@ -21,7 +21,9 @@ interface MySeatProps {
  * percentage-based placement, so it can't overlap or get clipped), but sized and
  * highlighted to stand out: bigger avatar, bigger cards, permanent gold ring. */
 export function MySeat({ player, holeCards, badge, token, extra, hyperactive, highlighted, flashSeq, emote }: MySeatProps) {
-  const classes = ['my-seat', hyperactive && 'hyperactive', highlighted && 'highlighted'].filter(Boolean).join(' ');
+  const classes = ['my-seat', hyperactive && 'hyperactive', highlighted && 'highlighted', token && 'has-token']
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div className={classes} data-seat-player={player.id}>
