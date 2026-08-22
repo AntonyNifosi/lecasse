@@ -33,22 +33,25 @@ export function MySeat({ player, holeCards, badge, token, extra, hyperactive, hi
   // frame — measure a position the token wasn't at yet, flying it in wide and snapping it
   // over next frame.
   //
-  // So the seat still jumps instantly, and the *cards* are what slide: they start out
-  // countering that jump exactly (rendering where they were a moment ago) and animate back
-  // to zero, which reads as them gliding aside to make room. The wrapper they're in is a
-  // sibling of the token, never an ancestor, so none of this can put the token's measured
-  // position back in question.
+  // So the seat still jumps instantly, and everything *inside* it is what slides: each part
+  // starts out countering that jump exactly (rendering where it was a moment ago) and
+  // animates back to zero, which reads as the whole seat gliding aside to make room. Every
+  // one of those parts is a sibling of the token, never an ancestor of it, so none of this
+  // can put the token's measured position back in question — which is exactly why the cards
+  // are animated through their own wrapper rather than through .my-seat-cards, the one
+  // element here that *is* the token's parent.
   //
-  // Driven imperatively rather than by re-keying this wrapper to restart a CSS animation:
-  // re-keying remounts the cards themselves, and .playing-card has its own cardReveal
-  // entrance animation (opacity 0, scaled, rotated) that restarts with them — which is why
-  // that read as the cards blinking out and back rather than sliding. Animating the wrapper
-  // in place never touches them.
+  // Driven imperatively rather than by re-keying to restart a CSS animation: re-keying
+  // remounts the cards, and .playing-card has its own cardReveal entrance (opacity 0,
+  // scaled, rotated) that restarts with them — which is why that read as the cards blinking
+  // out and back rather than sliding. Animating a wrapper in place never touches them.
   const hasToken = Boolean(token);
   // Seeded from this render's own value, not a hardcoded false: otherwise mounting already
   // holding a token (a page reload mid-round) reads as a claim happening right then too.
   const hadTokenRef = useRef(hasToken);
   const seatRef = useRef<HTMLDivElement>(null);
+  const avatarRef = useRef<HTMLSpanElement>(null);
+  const infoRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLSpanElement>(null);
   // The shift is only readable off the seat while it's actually applied, so it's captured on
   // the way in and reused to play the same slide in reverse on the way back out.
@@ -58,28 +61,29 @@ export function MySeat({ player, holeCards, badge, token, extra, hyperactive, hi
     if (hasToken === hadTokenRef.current) return;
     hadTokenRef.current = hasToken;
     const seat = seatRef.current;
-    const cards = cardsRef.current;
-    if (!seat || !cards) return;
+    if (!seat) return;
 
     if (hasToken) {
       // Whatever --tsz currently resolves to, rather than re-deriving the multiplier here:
       // the seat has already been shifted by the time this runs, so its own matrix is the
-      // one number guaranteed to match what the cards have to counter.
+      // one number guaranteed to match what its contents have to counter.
       const matrix = new DOMMatrixReadOnly(getComputedStyle(seat).transform);
       shiftPxRef.current = Math.abs(matrix.m41);
     }
     const from = hasToken ? shiftPxRef.current : -shiftPxRef.current;
     if (from === 0) return;
-    cards.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(0)' }], {
-      duration: 260,
-      easing: 'ease-out',
-    });
+    for (const part of [avatarRef.current, infoRef.current, cardsRef.current]) {
+      part?.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(0)' }], {
+        duration: 260,
+        easing: 'ease-out',
+      });
+    }
   }, [hasToken]);
 
   return (
     <div className={classes} data-seat-player={player.id} ref={seatRef}>
       {/* Only the avatar is re-keyed, not the wrapper — see the same note in Seat. */}
-      <span className="avatar-wrap">
+      <span className="avatar-wrap" ref={avatarRef}>
         <span
           key={`avatar-${flashSeq ?? 'idle'}`}
           className={`avatar-shake${flashSeq !== undefined ? ' seat-pip-flash-lost' : ''}`}
@@ -88,7 +92,7 @@ export function MySeat({ player, holeCards, badge, token, extra, hyperactive, hi
         </span>
         {emote}
       </span>
-      <div className="my-seat-info">
+      <div className="my-seat-info" ref={infoRef}>
         <span className="my-seat-name">
           <MarqueeName text={player.name} />
           {player.isHost && <span className="table-seat-host">★</span>}
