@@ -1414,10 +1414,6 @@ p {
   gap: calc(var(--tsz, 1rem) * 0.35);
   padding-bottom: calc(var(--tsz, 1rem) * 0.5);
   flex-shrink: 0;
-  /* On the base rule, not just .has-token below: a transition only plays on whichever side
-     of the change actually declares it, so putting it only on .has-token would animate
-     gaining a token but snap instantly on losing one. */
-  transition: transform 0.2s ease;
 }
 
 /* My token sits outside my cards' own box (position:absolute, see .my-seat .token) so it
@@ -1428,7 +1424,20 @@ p {
    token was clipped by the edge of the viewport. Shifting the whole row left by half the
    token's reach (it's the last thing in the row, so this is the same as shifting the token
    half its own reach back toward the middle) re-centers what's actually on screen without
-   giving the token itself, or the wrap check above, anything new to measure. */
+   giving the token itself, or the wrap check above, anything new to measure.
+
+   No transition on this shift, even though it'd be nice cosmetically: useTokenFlights reads
+   this token's real position with getBoundingClientRect() the instant it appears, in a
+   layout effect that runs before the browser ever paints a transitioning frame — a still-
+   animating transform reads as its start value at that point, not its end one, same as the
+   claim-pop animation did to .my-seat .token's own position before (see its comment above).
+   That measured the seat's pre-shift position as where the token was heading, so the ghost
+   flew to a spot ~1.15tsz right of the real one and the token itself popped in already
+   shifted — reading as the token landing too far right, then jumping left once the (still
+   only ever CSS, never JS-driven) shift caught up next frame. Confirmed by reading this
+   element's rect synchronously right after adding this class in a lab harness: with a
+   transition present it read ~1.15tsz short of the shift every time; without one, it reads
+   the fully-shifted position immediately, matching a seat that started with the class. */
 .my-seat.has-token {
   transform: translateX(calc(var(--tsz, 1rem) * -1.15));
 }
