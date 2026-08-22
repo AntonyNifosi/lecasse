@@ -53,7 +53,7 @@ export function ShowdownScreen({ onContinue }: Props) {
   return (
     <div className="table-screen">
       <div className="table-screen-header">
-        <div>
+        <div className="table-screen-header-title">
           <h2>L'abattage</h2>
           {/* Swaps to the open guess's own question — more useful right then than the
               generic subtitle, and the page header has none of the felt's space limits. */}

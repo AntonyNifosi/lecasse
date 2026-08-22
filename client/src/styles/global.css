@@ -915,6 +915,28 @@ p {
   gap: 0.6rem;
 }
 
+/* flex-wrap decides which items fit a line by their hypothetical size, which for a plain
+   flex item (flex-basis:auto) means its content's natural, unshrunk width — so a title
+   block holding a <p> long enough not to fit (an active malus card's name plus a full
+   question, on the showdown screen) was never going to shrink first: the emote/menu
+   buttons just got bumped onto their own extra row instead, costing the felt below a whole
+   row of height for it, not just the header. flex-basis:0 here (with min-width:0, since a
+   flex item's default min-width:auto would still protect its content's width regardless of
+   basis) gives this nothing to protect for that wrap decision, so the header only wraps if
+   the buttons themselves genuinely don't fit — and once they do, flex-grow:1 hands this
+   whatever's left over, same as before, with the question wrapping onto its own second line
+   inside it instead. Scoped to this one class rather than the header's every title block: a
+   different header nearby has more than one such group sharing the row (see GameBoardScreen)
+   and needs the wrap it still has to arrange those, not just this one growing to fill it. */
+.table-screen-header-title {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.table-screen-header > .btn {
+  flex-shrink: 0;
+}
+
 /* The oval and everything placed around it. Grows to fill whatever height is left over
    after the header, capped at a coherent maximum so it doesn't just keep inflating on a
    big desktop monitor — below --arena-min it scrolls instead, so the oval can't squash to
