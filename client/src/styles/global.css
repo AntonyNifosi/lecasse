@@ -1504,6 +1504,26 @@ p {
   flex-shrink: 0;
 }
 
+/* Its own flex row, not just the two cards loose in .my-seat-cards: re-keying this wrapper
+   (see MySeat) needs something of its own to remount and restart the animation on — the
+   token, right after it in the same row, is deliberately outside it and never remounts. */
+.my-seat-hole-cards {
+  display: flex;
+  gap: calc(var(--tsz, 1rem) * 0.35);
+  animation: myCardsSettle 0.28s ease-out;
+}
+
+@keyframes myCardsSettle {
+  from {
+    transform: translateX(calc(var(--tsz, 1rem) * 0.5));
+    opacity: 0.5;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 /* Flying token ghost: a decorative clone that travels from wherever a token came from
    (the center pot, or a player's seat) to wherever it just went — the real interactive
    token in the pot never actually moves, this is purely visual. */
