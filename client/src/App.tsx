@@ -68,6 +68,13 @@ function Toasts() {
           <div key={n.id} className="toast" onClick={() => dispatch({ type: 'DISMISS_NOTIFICATION', id: n.id })}>
             <span>{about ? `${n.message} (${about.name})` : n.message}</span>
             {n.card && <PlayingCard card={n.card} />}
+            {n.cards && n.cards.length > 0 && (
+              <div className="row" style={{ gap: '0.3rem' }}>
+                {n.cards.map((c, i) => (
+                  <PlayingCard key={i} card={c} small />
+                ))}
+              </div>
+            )}
           </div>
         );
       })}

@@ -36,7 +36,7 @@ function dispatchSideEffects(io: AppServer, room: RoomInternal, effects: SideEff
     if (effect.type === 'privatePeek') {
       io.to(player.socketId).emit('card:privatePeek', { aboutPlayerId: effect.aboutPlayerId, card: effect.card });
     } else {
-      io.to(player.socketId).emit('card:privateInfo', { message: effect.message, card: effect.card });
+      io.to(player.socketId).emit('card:privateInfo', { message: effect.message, cards: effect.cards });
     }
   }
 }

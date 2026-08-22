@@ -223,7 +223,7 @@ function applyOnDealEffects(room: RoomInternal, game: InternalGameState, cardDef
             type: 'privateInfo',
             toPlayerId: target.id,
             message: 'Vous découvrez en avance la carte du 3e tour (le Turn).',
-            card: turnCard,
+            cards: [turnCard],
           });
         }
         break;
@@ -239,12 +239,26 @@ function applyOnDealEffects(room: RoomInternal, game: InternalGameState, cardDef
         break;
       }
       case 'swapHandWithNeighbor': {
+        // Without this, the swap happens before anyone's cards are ever sent to them, so
+        // nobody actually sees the hand they're giving up — no different from just being
+        // dealt whatever they end up with. Telling each player what they had a beat before
+        // it moves on is what makes this a bonus (more to go on than your final 2 cards)
+        // rather than a reshuffle in disguise.
         const assignments = room.players.map((p) => ({
-          recipientId: neighbor(room, p.id, effect.direction).id,
+          fromPlayerId: p.id,
           hand: p.holeCards,
+          recipientId: neighbor(room, p.id, effect.direction).id,
         }));
         for (const { recipientId, hand } of assignments) {
           getPlayer(room, recipientId).holeCards = hand;
+        }
+        for (const { fromPlayerId, hand } of assignments) {
+          sideEffects.push({
+            type: 'privateInfo',
+            toPlayerId: fromPlayerId,
+            message: 'Nouvelle donne a fait tourner les mains : voici la vôtre, juste avant l’échange.',
+            cards: hand,
+          });
         }
         break;
       }

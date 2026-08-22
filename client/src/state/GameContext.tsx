@@ -7,7 +7,11 @@ import { socket } from '../socket';
 export interface Notification {
   id: string;
   message: string;
+  /** A single card, from privatePeek — always exactly one, about someone else's hand. */
   card?: Card;
+  /** From privateInfo — 0 or more, about your own situation (e.g. the hand Nouvelle donne
+   * just moved on from). */
+  cards?: Card[];
   aboutPlayerId?: string;
 }
 
@@ -129,8 +133,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         type: 'NOTIFY',
         notification: { id: crypto.randomUUID(), message: 'Vous apercevez en secret une de ses cartes :', card: data.card, aboutPlayerId: data.aboutPlayerId },
       });
-    const onInfo = (data: { message: string; card?: Card }) =>
-      dispatch({ type: 'NOTIFY', notification: { id: crypto.randomUUID(), message: data.message, card: data.card } });
+    const onInfo = (data: { message: string; cards?: Card[] }) =>
+      dispatch({ type: 'NOTIFY', notification: { id: crypto.randomUUID(), message: data.message, cards: data.cards } });
     const onError = (data: { code: string; message: string }) => dispatch({ type: 'ERROR', code: data.code, message: data.message });
     const emoteTimers = new Set<ReturnType<typeof setTimeout>>();
     const onEmote = (data: { playerId: string; emoteId: EmoteId; seq: number }) => {

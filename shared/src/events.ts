@@ -45,7 +45,7 @@ export interface ServerToClientEvents {
   'room:state': (state: RoomPublicState) => void;
   'player:private': (data: PlayerPrivate) => void;
   'card:privatePeek': (data: { aboutPlayerId: string; card: Card }) => void;
-  'card:privateInfo': (data: { message: string; card?: Card }) => void;
+  'card:privateInfo': (data: { message: string; cards?: Card[] }) => void;
   // Purely transient — never stored in RoomPublicState, so a reconnect or a late joiner
   // just doesn't see reactions that already happened, the same way they wouldn't have heard
   // a real gasp around a real table.

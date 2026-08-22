@@ -33,4 +33,4 @@ export interface RoomInternal {
 
 export type SideEffect =
   | { type: 'privatePeek'; toPlayerId: string; aboutPlayerId: string; card: Card }
-  | { type: 'privateInfo'; toPlayerId: string; message: string; card?: Card };
+  | { type: 'privateInfo'; toPlayerId: string; message: string; cards?: Card[] };
