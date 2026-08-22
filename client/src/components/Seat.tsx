@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { PlayerPublic } from '@thegang/shared';
 import { Avatar } from './Avatar';
+import { MarqueeName } from './MarqueeName';
 
 interface SeatProps {
   player: PlayerPublic;
@@ -60,7 +61,7 @@ export function Seat({ player, holeCards, revealed, badge, token, extra, hyperac
         {token}
       </div>
       <span className="table-seat-name">
-        {player.name}
+        <MarqueeName text={player.name} />
         {player.isHost && <span className="table-seat-host">★</span>}
       </span>
       {badge}

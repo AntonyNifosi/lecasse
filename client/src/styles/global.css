@@ -1177,7 +1177,20 @@ p {
   border-radius: 999px;
   background: rgba(8, 11, 10, 0.92);
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+/* The name text itself, not this pill — a long one now scrolls in place instead of
+   ellipsizing (see MarqueeName), and truncating here too would just hide what that reveals. */
+.marquee-name {
+  display: inline-block;
+  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: bottom;
+}
+
+.marquee-name-text {
+  display: inline-block;
   white-space: nowrap;
 }
 
@@ -1482,8 +1495,6 @@ p {
   background: rgba(8, 11, 10, 0.92);
   max-width: calc(var(--tsz, 1rem) * 7);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .my-seat-cards {
