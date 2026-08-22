@@ -1348,16 +1348,30 @@ p {
   --star: calc(var(--tsz, 1rem) * 0.58);
 }
 
+/* The result line under a seat (hand category, and/or a guess gate's answer about it) — both
+   can land here together right after a targeted player reveals, and "Quinte flush royale"
+   alone already outruns a narrow seat's width. This used to be a one-line pill that
+   ellipsized anything past --seat-w, which in practice meant almost every seat: wrapping
+   instead needed a seat-to-seat clearance check (a taller seat can crowd its neighbor on the
+   rim, unlike the center block below it, which tableGeometry checks automatically), verified
+   with this exact worst-case string at every player count. Capped at 3 lines rather than
+   left to grow freely — the realistic worst case fits comfortably inside that, so the cap is
+   only ever a backstop against something unbounded (a very long player name has no part in
+   this string, so it isn't the risk here). A pill shape (999px) reads fine for one line but
+   odd once it wraps, so this is a plain rounded tag instead. */
 .table-seat-showdown {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
   font-size: calc(var(--tsz, 1rem) * 0.58);
+  line-height: 1.25;
   max-width: 100%;
-  padding: 0.1em 0.4em;
-  border-radius: 999px;
+  padding: 0.15em 0.5em;
+  border-radius: calc(var(--tsz, 1rem) * 0.35);
   background: rgba(10, 14, 12, 0.78);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
 }
 
 /* My own seat: tucked up onto the oval's bottom edge (negative margin) so it reads as the
@@ -1398,16 +1412,9 @@ p {
 }
 
 /* Lets the info column give way instead of pushing my cards onto a second row: a long
-   showdown line ellipsizes rather than widening the seat. */
+   showdown line wraps inside it (see .table-seat-showdown) rather than widening the seat. */
 .my-seat-info {
   min-width: 0;
-}
-
-.my-seat .table-seat-showdown {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .my-seat .avatar {
