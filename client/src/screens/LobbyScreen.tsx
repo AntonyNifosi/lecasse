@@ -7,6 +7,10 @@ import { clearSession } from '../session';
 import { useGameDispatch, useGameState } from '../state/GameContext';
 
 const MODE_INFO: Record<CardMode, { label: string; description: string }> = {
+  classique: {
+    label: 'Classique',
+    description: 'Aucune carte bonus ni malus, jamais : que les règles de base, sans complication supplémentaire.',
+  },
   avance: {
     label: 'Avancé',
     description: "Une carte à la fois, tirée après chaque braquage selon son résultat (malus après un succès, bonus après un échec).",
@@ -22,7 +26,7 @@ const MODE_INFO: Record<CardMode, { label: string; description: string }> = {
       "Toujours 2 cartes malus actives en même temps, dès le braquage 1, aucune carte bonus, et 2 alarmes suffisent à faire perdre le gang (au lieu de 3).",
   },
 };
-const MODES: CardMode[] = ['avance', 'pro', 'gangster'];
+const MODES: CardMode[] = ['classique', 'avance', 'pro', 'gangster'];
 
 export function LobbyScreen() {
   const { room, myPlayerId } = useGameState();
@@ -95,7 +99,7 @@ export function LobbyScreen() {
           ))}
         </div>
         <p className="muted">{MODE_INFO[room.settings.mode].description}</p>
-        {room.settings.mode !== 'avance' && (
+        {(room.settings.mode === 'pro' || room.settings.mode === 'gangster') && (
           <p className="muted" style={{ fontSize: '0.85rem' }}>
             "Vigile zélé" est automatiquement exclue du tirage en mode Pro et Gangster.
           </p>

@@ -85,26 +85,34 @@ export function startGame(room: RoomInternal, playerId: string): SideEffect[] {
   }
 
   const mode = room.settings.mode;
-  const excludeInHardModes = mode === 'pro' || mode === 'gangster';
-  const malusPool = BONUS_MALUS_CARDS.filter(
-    (c) => c.kind === 'malus' && !(excludeInHardModes && c.id === HARD_MODE_EXCLUDED_CARD_ID),
-  ).map((c) => c.id);
-  const bonusPool = mode === 'gangster' ? [] : BONUS_MALUS_CARDS.filter((c) => c.kind === 'bonus').map((c) => c.id);
-  room.cardPools = { malusQueue: shuffle(malusPool), bonusQueue: shuffle(bonusPool) };
   room.proPermanentCard = null;
   room.gangsterSlots = [];
 
-  // Both drawn out of the queue permanently (not recycled to the back) — they're sitting
-  // active on the table, not available to be redrawn, exactly like the physical cards.
-  if (mode === 'pro' && room.cardPools.malusQueue.length > 0) {
-    const cardId = room.cardPools.malusQueue.shift() as string;
-    const def = getCardById(cardId);
-    if (def) room.proPermanentCard = { cardId, kind: def.kind };
-  }
-  if (mode === 'gangster') {
-    const count = Math.min(2, room.cardPools.malusQueue.length);
-    for (let i = 0; i < count; i++) {
-      room.gangsterSlots.push(room.cardPools.malusQueue.shift() as string);
+  if (mode === 'classique') {
+    // Nothing to pool at all — computeActiveCardsForHeist never draws from these for this
+    // mode either, but leaving the pools genuinely empty means there's nothing sitting
+    // around to draw from even if that guarantee were ever bypassed.
+    room.cardPools = { malusQueue: [], bonusQueue: [] };
+  } else {
+    const excludeInHardModes = mode === 'pro' || mode === 'gangster';
+    const malusPool = BONUS_MALUS_CARDS.filter(
+      (c) => c.kind === 'malus' && !(excludeInHardModes && c.id === HARD_MODE_EXCLUDED_CARD_ID),
+    ).map((c) => c.id);
+    const bonusPool = mode === 'gangster' ? [] : BONUS_MALUS_CARDS.filter((c) => c.kind === 'bonus').map((c) => c.id);
+    room.cardPools = { malusQueue: shuffle(malusPool), bonusQueue: shuffle(bonusPool) };
+
+    // Both drawn out of the queue permanently (not recycled to the back) — they're sitting
+    // active on the table, not available to be redrawn, exactly like the physical cards.
+    if (mode === 'pro' && room.cardPools.malusQueue.length > 0) {
+      const cardId = room.cardPools.malusQueue.shift() as string;
+      const def = getCardById(cardId);
+      if (def) room.proPermanentCard = { cardId, kind: def.kind };
+    }
+    if (mode === 'gangster') {
+      const count = Math.min(2, room.cardPools.malusQueue.length);
+      for (let i = 0; i < count; i++) {
+        room.gangsterSlots.push(room.cardPools.malusQueue.shift() as string);
+      }
     }
   }
 
@@ -118,6 +126,8 @@ export function startGame(room: RoomInternal, playerId: string): SideEffect[] {
  * rotation only kicks in from heist 2, while Pro's permanent card and Gangster's 2 slots
  * are already live on heist 1. */
 function computeActiveCardsForHeist(room: RoomInternal, lastOutcome: 'success' | 'fail' | null): ActiveCardState[] {
+  if (room.settings.mode === 'classique') return [];
+
   const toState = (cardId: string): ActiveCardState | null => {
     const def = getCardById(cardId);
     return def ? { cardId, kind: def.kind } : null;

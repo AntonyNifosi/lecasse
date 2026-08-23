@@ -140,11 +140,12 @@ export interface PlayerPrivate {
   holeCards: Card[];
 }
 
+// classique: no bonus or malus cards, ever — the base rules with nothing layered on top.
 // avance: the base bonus/malus mode — one card at a time, drawn after each heist's outcome.
 // pro: one malus card drawn at random is active permanently from heist 1, on top of the avance rotation.
 // gangster: always exactly 2 malus cards active (no bonus cards at all), from heist 1, one
 // swapped out per heist; losing threshold drops from 3 alarms to 2.
-export type CardMode = 'avance' | 'pro' | 'gangster';
+export type CardMode = 'classique' | 'avance' | 'pro' | 'gangster';
 
 export interface RoomSettings {
   mode: CardMode;
