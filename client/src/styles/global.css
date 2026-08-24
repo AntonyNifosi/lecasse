@@ -118,6 +118,7 @@ p {
   gap: 0.5rem;
   transition: transform 0.08s ease, opacity 0.15s ease, background 0.15s ease;
   touch-action: manipulation;
+  text-decoration: none;
 }
 
 .btn:active {

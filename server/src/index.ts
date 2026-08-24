@@ -33,6 +33,13 @@ app.get('/healthz', (_req, res) => {
   res.json({ ok: true, uptime: Math.round(process.uptime()) });
 });
 
+// Stable link for the Android APK (kept alongside the versioned GitHub Release so people can
+// just visit one URL instead of hunting through Releases assets). The directory is bind-mounted
+// from the host (see docker-compose.yml) and refreshed in place by the "APK Android" workflow
+// after each tag — nothing here needs to change or restart for a new build to show up.
+const downloadsDir = path.resolve(__dirname, '../../downloads');
+app.use('/telecharger', express.static(downloadsDir));
+
 const clientDist = path.resolve(__dirname, '../../client/dist');
 if (existsSync(clientDist)) {
   app.use(express.static(clientDist));

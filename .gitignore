@@ -11,3 +11,7 @@ dist/
 client/android/
 client/assets/
 
+# Bind-mount local pour le lien de téléchargement stable de l'APK (voir docker-compose.yml
+# et server/src/index.ts) : rempli par le workflow APK Android sur le serveur, jamais versionné.
+/downloads/
+

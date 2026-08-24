@@ -136,3 +136,32 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" "${{ steps.apk.outputs.name }}" --generate-notes || gh release upload "$GITHUB_REF_NAME" "${{ steps.apk.outputs.name }}" --clobber
+
+      # En plus de la release GitHub : un lien fixe sur le serveur de jeu lui-même
+      # (/telecharger/le-casse.apk), pour ne pas avoir besoin d'un compte GitHub pour
+      # installer l'appli. Mêmes secrets que le déploiement du serveur (deploy.yml) ; s'ils
+      # ne sont pas configurés, cette étape est simplement ignorée et la release GitHub reste
+      # le seul moyen de récupérer l'APK.
+      - name: Publier l'APK sur le serveur (lien de téléchargement stable)
+        if: github.ref_type == 'tag'
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/le-casse' }}
+        run: |
+          if [ -z "${SSH_HOST:-}" ] || [ -z "${SSH_USER:-}" ] || [ -z "${SSH_KEY:-}" ]; then
+            echo "Secrets de déploiement absents : publication sur le serveur ignorée (l'APK reste disponible sur la release GitHub)."
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          SSH="ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -p $SSH_PORT $SSH_USER@$SSH_HOST"
+          $SSH "mkdir -p '$DEPLOY_PATH/downloads'"
+          cp "${{ steps.apk.outputs.name }}" le-casse.apk
+          scp -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -P "$SSH_PORT" le-casse.apk "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/downloads/le-casse.apk"
+          $SSH "chmod -R a+rX '$DEPLOY_PATH/downloads'"

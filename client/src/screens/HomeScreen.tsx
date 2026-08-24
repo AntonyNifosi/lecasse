@@ -7,6 +7,11 @@ import { AVATAR_COLORS } from '../theme';
 
 type View = 'menu' | 'create' | 'join';
 
+// Only worth offering from the web: inside the Android app shell, whoever's reading this
+// already has it installed. Same check main.tsx uses to skip the service worker there.
+const isNativeShell = 'Capacitor' in window;
+const showApkDownload = import.meta.env.PROD && !isNativeShell;
+
 function createErrorMessage(code: ErrorCode): string {
   if (code === 'NAME_TAKEN') return 'Ce pseudo est déjà pris';
   return 'Une erreur est survenue, réessayez.';
@@ -124,6 +129,11 @@ export function HomeScreen() {
           <button type="button" className="btn btn-primary btn-block btn-lg" onClick={() => goTo('join')}>
             Rejoindre une partie
           </button>
+          {showApkDownload && (
+            <a href="/telecharger/le-casse.apk" download className="btn btn-secondary btn-block">
+              Télécharger l'appli Android
+            </a>
+          )}
         </div>
       </div>
     );
